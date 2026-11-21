@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://bqas6or11knmr"]
+
+[ext_resource type="Script" uid="uid://cljkf6ic3b6do" path="res://scripts/game_state.gd" id="1_state"]
+[ext_resource type="Script" uid="uid://kk2v20v3xpti" path="res://scripts/sound_manager.gd" id="2_sound"]
+[ext_resource type="Script" uid="uid://bqtbppiccy2my" path="res://scripts/salon_world.gd" id="3_world"]
+[ext_resource type="Script" uid="uid://barwqfhio20h3" path="res://scripts/grooming_minigame.gd" id="4_mini"]
+[ext_resource type="Script" uid="uid://jwuxlcellbyh" path="res://scripts/main_ui.gd" id="5_ui"]
+[ext_resource type="Script" uid="uid://chlmlg1r1krjd" path="res://scripts/bootstrap.gd" id="6_boot"]
+
+[node name="Main" type="Node" unique_id=1775989177]
+script = ExtResource("6_boot")
+
+[node name="GameState" type="Node" parent="." unique_id=2147141921]
+script = ExtResource("1_state")
+
+[node name="SoundManager" type="Node" parent="." unique_id=842743705]
+script = ExtResource("2_sound")
+
+[node name="SalonWorld" type="Node2D" parent="." unique_id=1143860454]
+script = ExtResource("3_world")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=867752415]
+
+[node name="MainUI" type="Control" parent="CanvasLayer" unique_id=111950528]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5_ui")
+
+[node name="GroomingMinigame" type="Control" parent="CanvasLayer" unique_id=1600920372]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_mini")
