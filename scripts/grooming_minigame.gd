@@ -65,10 +65,6 @@ var _coat_items: Array[Dictionary] = []
 var _scruffy_tufts: Array[Dictionary] = []
 var _tex_cache: Dictionary = {}
 
-var _soft_fur_tex: Texture2D
-var _soft_shadow_tex: Texture2D
-var _sparkle_tex: Texture2D
-
 var _title_lbl: Label
 var _loc_lbl: Label
 var _status_lbl: Label
@@ -86,46 +82,8 @@ var _action_btn: Button
 func setup(p_state: GameState, p_sound: SoundManager) -> void:
 	state = p_state
 	sound = p_sound
-	_create_procedural_textures()
 	_build_ui()
 	visible = false
-
-func _create_procedural_textures() -> void:
-	var g_fur := Gradient.new()
-	g_fur.offsets = PackedFloat32Array([0.0, 0.72, 1.0])
-	g_fur.colors = PackedColorArray([Color(1.06, 1.06, 1.06, 1.0), Color(0.95, 0.95, 0.95, 0.92), Color(0.88, 0.88, 0.88, 0.0)])
-	var tex_fur := GradientTexture2D.new()
-	tex_fur.gradient = g_fur
-	tex_fur.fill = GradientTexture2D.FILL_RADIAL
-	tex_fur.fill_from = Vector2(0.45, 0.42)
-	tex_fur.fill_to = Vector2(0.95, 0.95)
-	tex_fur.width = 64
-	tex_fur.height = 64
-	_soft_fur_tex = tex_fur
-
-	var g_sh := Gradient.new()
-	g_sh.offsets = PackedFloat32Array([0.0, 1.0])
-	g_sh.colors = PackedColorArray([Color(0.28, 0.22, 0.16, 0.35), Color(0.28, 0.22, 0.16, 0.0)])
-	var tex_sh := GradientTexture2D.new()
-	tex_sh.gradient = g_sh
-	tex_sh.fill = GradientTexture2D.FILL_RADIAL
-	tex_sh.fill_from = Vector2(0.5, 0.5)
-	tex_sh.fill_to = Vector2(1.0, 0.5)
-	tex_sh.width = 64
-	tex_sh.height = 64
-	_soft_shadow_tex = tex_sh
-
-	var g_sp := Gradient.new()
-	g_sp.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
-	g_sp.colors = PackedColorArray([Color(1.0, 0.99, 0.94, 0.95), Color(1.0, 0.99, 0.94, 0.35), Color(1.0, 0.99, 0.94, 0.0)])
-	var tex_sp := GradientTexture2D.new()
-	tex_sp.gradient = g_sp
-	tex_sp.fill = GradientTexture2D.FILL_RADIAL
-	tex_sp.fill_from = Vector2(0.5, 0.5)
-	tex_sp.fill_to = Vector2(1.0, 0.5)
-	tex_sp.width = 32
-	tex_sp.height = 32
-	_sparkle_tex = tex_sp
 
 func start_new_pet(preset_pet: Dictionary = {}) -> void:
 	if preset_pet.is_empty():
@@ -221,7 +179,7 @@ func _setup_step_items() -> void:
 					"offset": bp,
 					"value": 1.0,
 					"foam": 0.0,
-					"size": 26.0,
+					"size": 24.0,
 					"is_chest": abs(bp.x) < br.x * 0.25 and bp.y < 0.30
 				})
 		Step.TRIM_COAT:
@@ -239,7 +197,7 @@ func _setup_step_items() -> void:
 					"value": 1.0,
 					"cuts_left": 2,
 					"foam": 0.0,
-					"size": 25.0,
+					"size": 24.0,
 					"is_chest": mp["is_chest"]
 				})
 		Step.CLIP_NAILS:
@@ -252,7 +210,7 @@ func _setup_step_items() -> void:
 					"offset": bp,
 					"value": 1.0,
 					"foam": 0.0,
-					"size": 30.0
+					"size": 28.0
 				})
 		Step.WASH_RINSE:
 			for bp in body_points:
@@ -260,7 +218,7 @@ func _setup_step_items() -> void:
 					"offset": bp,
 					"value": 0.0,
 					"foam": 1.0,
-					"size": 34.0
+					"size": 32.0
 				})
 		Step.TOWEL_WRAP, Step.BLOW_DRY:
 			for bp in body_points:
@@ -1188,13 +1146,11 @@ func _get_optional_texture(path: String) -> Texture2D:
 	return null
 
 func _draw_soft_blob(pos: Vector2, rx: float, ry: float, col: Color, with_outline: bool = false) -> void:
-	if _soft_fur_tex != null:
-		var rect := Rect2(pos - Vector2(rx * 1.15, ry * 1.15), Vector2(rx * 2.3, ry * 2.3))
-		_pad_panel.draw_texture_rect(_soft_fur_tex, rect, false, col)
-	else:
-		_draw_ellipse_shape(pos, rx, ry, col, false)
+	_draw_ellipse_shape(pos, rx, ry, col.darkened(0.12), false)
+	_draw_ellipse_shape(pos + Vector2(-rx * 0.04, -ry * 0.07), rx * 0.92, ry * 0.90, col, false)
+	_draw_ellipse_shape(pos + Vector2(-rx * 0.16, -ry * 0.25), rx * 0.54, ry * 0.42, col.lightened(0.16), false)
 	if with_outline:
-		_draw_ellipse_outline(pos, rx * 0.94, ry * 0.94, Color(0.36, 0.30, 0.25, 0.55), 2.5)
+		_draw_ellipse_outline(pos, rx, ry, Color(0.36, 0.30, 0.25, 0.68), 3.0)
 
 func _draw_pet_pad() -> void:
 	if _pad_panel == null:
@@ -1215,12 +1171,11 @@ func _draw_pet_pad() -> void:
 	if location == Location.TABLE and _fur_pile_count > 0:
 		var pile_base := Vector2(sz.x - 145.0, sz.y * 0.74 - 10.0)
 		var body_col: Color = pet.get("body_color", Color("e6b67c"))
-		if _soft_shadow_tex != null:
-			_pad_panel.draw_texture_rect(_soft_shadow_tex, Rect2(pile_base + Vector2(-75, -6), Vector2(150, 32)), false)
+		_draw_ellipse_shape(pile_base + Vector2(0, 10), 72.0, 15.0, Color(0.45, 0.36, 0.28, 0.22), false)
 		for k in range(_fur_pile_count):
 			var ox: float = ((k % 4) - 1.5) * 20.0
 			var oy: float = -floor(float(k) / 4.0) * 11.0
-			_draw_soft_blob(pile_base + Vector2(ox, oy), 18.0, 15.0, body_col.lightened(0.08), false)
+			_draw_soft_blob(pile_base + Vector2(ox, oy), 16.0, 13.0, body_col.lightened(0.08), true)
 
 	if step == Step.BLOW_DRY and active_tool == Tool.CABINET:
 		_pad_panel.draw_rect(Rect2(center - Vector2(r * 1.35, r * 1.35), Vector2(r * 2.7, r * 2.5)), Color(0.76, 0.89, 0.83, 0.42))
@@ -1233,7 +1188,7 @@ func _draw_pet_pad() -> void:
 	else:
 		_draw_breed_character(center, r)
 
-	if _fluff_shine > 0.25 and _sparkle_tex != null:
+	if _fluff_shine > 0.25:
 		var sp_offsets := [
 			Vector2(-r * 0.78, -r * 0.45),
 			Vector2(r * 0.82, -r * 0.30),
@@ -1243,8 +1198,10 @@ func _draw_pet_pad() -> void:
 		for idx_s in range(sp_offsets.size()):
 			var pulse_s: float = (0.65 + sin(_anim_time * 4.5 + float(idx_s) * 1.7) * 0.35) * _fluff_shine
 			var sp_pos: Vector2 = center + sp_offsets[idx_s]
-			var sp_sz: float = 42.0 * pulse_s
-			_pad_panel.draw_texture_rect(_sparkle_tex, Rect2(sp_pos - Vector2(sp_sz * 0.5, sp_sz * 0.5), Vector2(sp_sz, sp_sz)), false)
+			var sp_len: float = 16.0 * pulse_s
+			var sp_col := Color(1.0, 0.99, 0.94, 0.92 * _fluff_shine)
+			_pad_panel.draw_line(sp_pos + Vector2(-sp_len, 0), sp_pos + Vector2(sp_len, 0), sp_col, 3.5)
+			_pad_panel.draw_line(sp_pos + Vector2(0, -sp_len), sp_pos + Vector2(0, sp_len), sp_col, 3.5)
 
 	if step == Step.FINAL_STYLE or step == Step.PACK_CARRIER or step == Step.SUMMARY:
 		_draw_chosen_accessory(center, r)
@@ -1280,7 +1237,7 @@ func _draw_pet_pad() -> void:
 				var val_b: float = float(item["value"])
 				if val_b > 0.05:
 					var tuft_b: Color = zone_col.darkened(0.14)
-					_draw_soft_blob(sp, sz_item * 0.85 * val_b, sz_item * 0.75 * val_b, tuft_b, false)
+					_draw_soft_blob(sp, sz_item * 0.82 * val_b, sz_item * 0.72 * val_b, tuft_b, false)
 			Step.TRIM_COAT, Step.FINAL_TRIM:
 				var val: float = float(item["value"])
 				if val > 0.05:
@@ -1317,11 +1274,7 @@ func _draw_pet_pad() -> void:
 		var age_ratio: float = clamp(1.0 - float(p["age"]) / float(p["life"]), 0.0, 1.0)
 		var pc: Color = p["color"]
 		pc.a = age_ratio * 0.92
-		if _soft_fur_tex != null:
-			var pr: float = float(p["radius"]) * 1.25
-			_pad_panel.draw_texture_rect(_soft_fur_tex, Rect2(Vector2(p["pos"]) - Vector2(pr, pr), Vector2(pr * 2.0, pr * 2.0)), false, pc)
-		else:
-			_pad_panel.draw_circle(Vector2(p["pos"]), float(p["radius"]), pc)
+		_pad_panel.draw_circle(Vector2(p["pos"]), float(p["radius"]), pc)
 
 	if active_tool != Tool.CABINET and step != Step.FINAL_STYLE and step != Step.SUMMARY and not in_carrier_step:
 		if _stroking or _pointer_pos.x > 0.0:
@@ -1498,8 +1451,7 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 	var body_rx: float = r * (br.x + breath) * coat_volume
 	var body_ry: float = r * br.y * coat_volume
 
-	if _soft_shadow_tex != null:
-		_pad_panel.draw_texture_rect(_soft_shadow_tex, Rect2(center + Vector2(-body_rx * 1.2, body_ry + r * 0.08), Vector2(body_rx * 2.4, r * 0.34)), false)
+	_draw_ellipse_shape(center + Vector2(0, body_ry + r * 0.25), body_rx * 1.12, r * 0.17, Color(0.42, 0.34, 0.26, 0.28), false)
 
 	var tail_speed: float = 8.0 if calmness > 70.0 else 3.8
 	var tail_swing: float = sin(_anim_time * tail_speed) * (20.0 if calmness > 70.0 else 10.0)
