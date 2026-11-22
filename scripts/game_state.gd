@@ -6,8 +6,8 @@ signal day_passed(day_num: int, month_num: int, salary_paid: int)
 signal guest_visited_changed(is_visiting: bool, salon_name: String)
 
 var money: int = 1200
-var reputation: float = 3.5 # 1.0 .. 10.0
-var salon_level: int = 1 # 1 .. 5
+var reputation: float = 3.5
+var salon_level: int = 1
 var salon_name: String = "Нежный Хвостик"
 
 var game_minute: int = 10 * 60
@@ -19,7 +19,7 @@ var grooming_stations: int = 1
 var wash_stations: int = 1
 var dry_stations: int = 1
 var has_drying_cabinet: bool = false
-var equipment_tier: int = 1 # 1 .. 4
+var equipment_tier: int = 1
 
 var tool_upgrades: Dictionary = {
 	"quiet_dryer": false,
@@ -96,17 +96,17 @@ var decor_catalog: Array[Dictionary] = [
 ]
 
 const BREED_POOL: Array[Dictionary] = [
-	{"species": "Котик", "breed": "Персидский", "visual_type": "persian", "coat": "Длинная шёлковая шерсть", "coat_type": "long", "sprite_path": "res://assets/pets/persian.png"},
-	{"species": "Котик", "breed": "Мейн-кун", "visual_type": "persian", "coat": "Густой воротник и кисточки", "coat_type": "long", "sprite_path": "res://assets/pets/mainecoon.png"},
-	{"species": "Котик", "breed": "Британский короткошёрстный", "visual_type": "british", "coat": "Плюшевый подшёрсток", "coat_type": "short", "sprite_path": "res://assets/pets/british.png"},
-	{"species": "Котик", "breed": "Шотландский вислоухий", "visual_type": "lop_cat", "coat": "Мягкая плюшевая шубка", "coat_type": "short", "sprite_path": "res://assets/pets/scottish.png"},
-	{"species": "Котик", "breed": "Сибирский", "visual_type": "persian", "coat": "Пышная тёплая шерсть", "coat_type": "long", "sprite_path": "res://assets/pets/siberian.png"},
-	{"species": "Пёсик", "breed": "Вельш-корги", "visual_type": "corgi", "coat": "Густой плотный подшёрсток", "coat_type": "dense", "sprite_path": "res://assets/pets/corgi.png"},
-	{"species": "Пёсик", "breed": "Той-пудель", "visual_type": "poodle", "coat": "Кудрявая мягкая шерсть", "coat_type": "curly", "sprite_path": "res://assets/pets/poodle.png"},
-	{"species": "Пёсик", "breed": "Померанский шпиц", "visual_type": "spitz", "coat": "Воздушная пушистая шубка", "coat_type": "long", "sprite_path": "res://assets/pets/spitz.png"},
-	{"species": "Пёсик", "breed": "Самоед", "visual_type": "spitz", "coat": "Белоснежное облако шерсти", "coat_type": "long", "sprite_path": "res://assets/pets/samoyed.png"},
-	{"species": "Пёсик", "breed": "Такса", "visual_type": "dachshund", "coat": "Гладкая блестящая шерсть", "coat_type": "short", "sprite_path": "res://assets/pets/dachshund.png"},
-	{"species": "Пёсик", "breed": "Бигль", "visual_type": "dachshund", "coat": "Плотная короткая шерсть", "coat_type": "short", "sprite_path": "res://assets/pets/beagle.png"}
+	{"species": "Котик", "breed": "Персидский", "visual_type": "persian", "size_scale": 0.96, "uses_carrier": true, "coat": "Длинная шёлковая шерсть", "coat_type": "long", "sprite_path": "res://assets/pets/persian.png"},
+	{"species": "Котик", "breed": "Мейн-кун", "visual_type": "mainecoon", "size_scale": 1.18, "uses_carrier": true, "coat": "Густая грива и рысьи кисточки", "coat_type": "long", "sprite_path": "res://assets/pets/mainecoon.png"},
+	{"species": "Котик", "breed": "Курильский бобтейл", "visual_type": "bobtail", "size_scale": 0.95, "uses_carrier": true, "coat": "Полудлинный мех и хвост-помпон", "coat_type": "short", "sprite_path": "res://assets/pets/bobtail.png"},
+	{"species": "Котик", "breed": "Британский короткошёрстный", "visual_type": "british", "size_scale": 1.0, "uses_carrier": true, "coat": "Плюшевый подшёрсток", "coat_type": "short", "sprite_path": "res://assets/pets/british.png"},
+	{"species": "Котик", "breed": "Шотландский вислоухий", "visual_type": "lop_cat", "size_scale": 0.92, "uses_carrier": true, "coat": "Мягкая плюшевая шубка", "coat_type": "short", "sprite_path": "res://assets/pets/scottish.png"},
+	{"species": "Пёсик", "breed": "Вельш-корги", "visual_type": "corgi", "size_scale": 1.04, "uses_carrier": false, "coat": "Густой плотный подшёрсток", "coat_type": "dense", "sprite_path": "res://assets/pets/corgi.png"},
+	{"species": "Пёсик", "breed": "Той-пудель", "visual_type": "poodle", "size_scale": 0.84, "uses_carrier": true, "coat": "Кудрявая мягкая шерсть", "coat_type": "curly", "sprite_path": "res://assets/pets/poodle.png"},
+	{"species": "Пёсик", "breed": "Померанский шпиц", "visual_type": "spitz", "size_scale": 0.85, "uses_carrier": true, "coat": "Воздушная пушистая шубка", "coat_type": "long", "sprite_path": "res://assets/pets/spitz.png"},
+	{"species": "Пёсик", "breed": "Самоед", "visual_type": "samoyed", "size_scale": 1.24, "uses_carrier": false, "coat": "Белоснежное облако шерсти", "coat_type": "long", "sprite_path": "res://assets/pets/samoyed.png"},
+	{"species": "Пёсик", "breed": "Такса", "visual_type": "dachshund", "size_scale": 0.96, "uses_carrier": true, "coat": "Гладкая блестящая шерсть", "coat_type": "short", "sprite_path": "res://assets/pets/dachshund.png"},
+	{"species": "Пёсик", "breed": "Бигль", "visual_type": "beagle", "size_scale": 1.02, "uses_carrier": false, "coat": "Плотная короткая шерсть", "coat_type": "short", "sprite_path": "res://assets/pets/beagle.png"}
 ]
 
 const CAT_NAMES: Array[String] = [
@@ -239,8 +239,10 @@ func spawn_pet_client() -> Dictionary:
 	var owner_name: String = OWNER_NAMES[randi() % OWNER_NAMES.size()]
 
 	var pal: Dictionary = COAT_PALETTES[randi() % COAT_PALETTES.size()]
-	if str(breed_info["breed"]) == "Самоед":
+	if str(breed_info["visual_type"]) == "samoyed":
 		pal = COAT_PALETTES[4]
+	elif str(breed_info["visual_type"]) == "corgi":
+		pal = COAT_PALETTES[0]
 
 	var temp: Dictionary = TEMPERAMENTS[randi() % TEMPERAMENTS.size()]
 	var acc_pref: Dictionary = ACCESSORY_PREFS[randi() % ACCESSORY_PREFS.size()]
@@ -253,10 +255,12 @@ func spawn_pet_client() -> Dictionary:
 	var uid: String = "%s_%s_%s" % [breed_info["visual_type"], pet_name, owner_name]
 	var mem: Dictionary = pet_memory.get(uid, {"trust": 0.0, "visits": 0, "banished": false})
 
-	var replica: String = "«Здравствуйте! Я %s, а это %s (%s). У нас %s. В финале очень хотим %s и лёгкий аромат «%s»!»" % [
+	var arrive_note := "Мы принесли в переноске" if bool(breed_info.get("uses_carrier", false)) else "Мы пришли на поводке"
+	var replica: String = "«Здравствуйте! Я %s, а это %s (%s). %s — у нас %s. В финале хотим %s и аромат «%s»!»" % [
 		owner_name,
 		pet_name,
 		str(breed_info["breed"]).to_lower(),
+		arrive_note,
 		str(temp["problem"]),
 		str(acc_pref["label"]).to_lower(),
 		str(scent_pref["label"])
@@ -265,6 +269,8 @@ func spawn_pet_client() -> Dictionary:
 	return {
 		"id": uid,
 		"visual_type": breed_info["visual_type"],
+		"size_scale": breed_info.get("size_scale", 1.0),
+		"uses_carrier": breed_info.get("uses_carrier", false),
 		"sprite_path": breed_info["sprite_path"],
 		"name": pet_name,
 		"owner_name": owner_name,
