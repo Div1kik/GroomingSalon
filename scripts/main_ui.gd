@@ -320,10 +320,12 @@ func _build_gallery_tab() -> void:
 		box.add_child(head)
 
 		var style_lbl := Label.new()
-		var a_id := str(photo.get("chosen_acc", "bow"))
-		var s_id := str(photo.get("chosen_scent", "lavender"))
+		var a_id: String = str(photo.get("chosen_acc", "bow"))
+		var s_id: String = str(photo.get("chosen_scent", "lavender"))
+		var a_txt: String = str(acc_names.get(a_id, a_id))
+		var s_txt: String = str(scent_names.get(s_id, s_id))
 		style_lbl.text = "Преображение: шёрстка вымыта и уложена • Образ: %s + аромат «%s» • Спокойствие: %d%%" % [
-			acc_names.get(a_id, a_id), scent_names.get(s_id, s_id), int(photo.get("calm_pct", 80))
+			a_txt, s_txt, int(photo.get("calm_pct", 80))
 		]
 		style_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		style_lbl.add_theme_font_size_override("font_size", 21)
