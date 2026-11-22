@@ -2,85 +2,187 @@ extends Node
 class_name SoundManager
 
 var muted: bool = false
-var _music_player: AudioStreamPlayer
-var _sfx_player: AudioStreamPlayer
-var _note_timer: float = 0.0
-var _step_index: int = 0
+var _player: AudioStreamPlayer
+var _loop_player: AudioStreamPlayer
+var _playback: AudioStreamGeneratorPlayback
+var _loop_playback: AudioStreamGeneratorPlayback
 
-# Мягкие ноты в тональности До-мажор / пентатоника для спокойного саундтрека
-const CHORD_FREQS: Array[float] = [261.63, 329.63, 392.00, 493.88, 523.25, 392.00, 329.63, 293.66]
+const SAMPLE_RATE := 22050.0
 
 func _ready() -> void:
-	_music_player = AudioStreamPlayer.new()
-	_music_player.name = "AmbientMusic"
-	_music_player.volume_db = -18.0
-	add_child(_music_player)
+	_player = AudioStreamPlayer.new()
+	var gen := AudioStreamGenerator.new()
+	gen.mix_rate = SAMPLE_RATE
+	gen.buffer_length = 0.45
+	_player.stream = gen
+	_player.volume_db = -8.0
+	add_child(_player)
+	_player.play()
+	_playback = _player.get_stream_playback()
 
-	_sfx_player = AudioStreamPlayer.new()
-	_sfx_player.name = "SfxPlayer"
-	_sfx_player.volume_db = -10.0
-	add_child(_sfx_player)
-
-	_play_ambient_step()
-
-func _process(delta: float) -> void:
-	if muted:
-		return
-	_note_timer += delta
-	if _note_timer >= 1.35:
-		_note_timer = 0.0
-		_step_index = (_step_index + 1) % CHORD_FREQS.size()
-		_play_ambient_step()
+	_loop_player = AudioStreamPlayer.new()
+	var loop_gen := AudioStreamGenerator.new()
+	loop_gen.mix_rate = SAMPLE_RATE
+	loop_gen.buffer_length = 0.35
+	_loop_player.stream = loop_gen
+	_loop_player.volume_db = -12.0
+	add_child(_loop_player)
+	_loop_player.play()
+	_loop_playback = _loop_player.get_stream_playback()
 
 func toggle_mute() -> void:
 	muted = not muted
-	_music_player.stream_paused = muted
+	_player.stream_paused = muted
+	_loop_player.stream_paused = muted
 
-func _play_ambient_step() -> void:
+func _ensure_playback() -> bool:
 	if muted:
-		return
-	var freq: float = CHORD_FREQS[_step_index]
-	_music_player.stream = _make_soft_tone(freq, 1.45, 0.14)
-	_music_player.play()
+		return false
+	if not _player.playing:
+		_player.play()
+	_playback = _player.get_stream_playback()
+	return _playback != null
+
+func _ensure_loop_playback() -> bool:
+	if muted:
+		return false
+	if not _loop_player.playing:
+		_loop_player.play()
+	_loop_playback = _loop_player.get_stream_playback()
+	return _loop_playback != null
 
 func play_soft_pop(pitch_scale: float = 1.0) -> void:
-	if muted:
+	if not _ensure_playback():
 		return
-	_sfx_player.stream = _make_soft_tone(520.0 * pitch_scale, 0.12, 0.22)
-	_sfx_player.play()
+	var duration := 0.08
+	var total := int(SAMPLE_RATE * duration)
+	var freq := 420.0 * pitch_scale
+	var phase := 0.0
+	for i in range(min(total, _playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := sin(t * PI) * (1.0 - t * 0.5)
+		phase += (freq * (1.0 + t * 0.35)) / SAMPLE_RATE
+		var sample := sin(phase * TAU) * env * 0.25
+		_playback.push_frame(Vector2(sample, sample))
+
+func play_brush_stroke() -> void:
+	if not _ensure_loop_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.09)
+	var lp := 0.0
+	for i in range(min(total, _loop_playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := sin(t * PI) * 0.24
+		var noise := randf_range(-1.0, 1.0)
+		lp = lp * 0.72 + noise * 0.28
+		var s := (noise - lp) * env
+		_loop_playback.push_frame(Vector2(s, s))
+
+func play_clipper_snip() -> void:
+	if not _ensure_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.075)
+	var phase := 0.0
+	for i in range(min(total, _playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := pow(1.0 - t, 2.2)
+		var freq := 1450.0 if t < 0.25 else 880.0
+		phase += freq / SAMPLE_RATE
+		var click := (1.0 if sin(phase * TAU) > 0.0 else -1.0) * 0.14
+		var ring := sin(phase * TAU * 1.5) * 0.22
+		var s := (click + ring) * env
+		_playback.push_frame(Vector2(s, s))
+
+func play_scissors_snip() -> void:
+	if not _ensure_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.09)
+	var phase := 0.0
+	for i in range(min(total, _playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := sin(t * PI) * (1.0 - t * 0.6)
+		var freq := 1850.0 - t * 650.0
+		phase += freq / SAMPLE_RATE
+		var scrape := randf_range(-0.18, 0.18) * (1.0 - t)
+		var blade := sin(phase * TAU) * 0.18
+		var s := (scrape + blade) * env
+		_playback.push_frame(Vector2(s, s))
+
+func play_foam_sound() -> void:
+	if not _ensure_loop_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.08)
+	var phase := 0.0
+	for i in range(min(total, _loop_playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := sin(t * PI) * 0.22
+		var pop := sin(phase * TAU) * (1.0 if randf() < 0.18 else 0.2)
+		phase += randf_range(650.0, 1400.0) / SAMPLE_RATE
+		var s := (pop + randf_range(-0.25, 0.25)) * env
+		_loop_playback.push_frame(Vector2(s, s))
+
+func play_water_stream() -> void:
+	if not _ensure_loop_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.07)
+	var lp := 0.0
+	for i in range(min(total, _loop_playback.get_frames_available())):
+		var env := 0.20
+		var noise := randf_range(-1.0, 1.0)
+		lp = lp * 0.55 + noise * 0.45
+		var s := lp * env
+		_loop_playback.push_frame(Vector2(s, s))
+
+func play_dryer_hum() -> void:
+	if not _ensure_loop_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.07)
+	var phase := 0.0
+	var lp := 0.0
+	for i in range(min(total, _loop_playback.get_frames_available())):
+		phase += 165.0 / SAMPLE_RATE
+		var hum := sin(phase * TAU) * 0.12
+		var air := randf_range(-1.0, 1.0)
+		lp = lp * 0.65 + air * 0.35
+		var s := hum + lp * 0.16
+		_loop_playback.push_frame(Vector2(s, s))
+
+func play_shiver_sound() -> void:
+	if not _ensure_playback():
+		return
+	var total := int(SAMPLE_RATE * 0.32)
+	var phase := 0.0
+	for i in range(min(total, _playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := sin(t * PI) * 0.28
+		var wobble := sin(t * TAU * 19.0) * 95.0
+		var freq := 310.0 + t * 140.0 + wobble
+		phase += freq / SAMPLE_RATE
+		var s := sin(phase * TAU) * env
+		_playback.push_frame(Vector2(s, s))
 
 func play_success() -> void:
-	if muted:
+	if not _ensure_playback():
 		return
-	_sfx_player.stream = _make_soft_tone(659.25, 0.24, 0.25)
-	_sfx_player.play()
+	var notes := [523.25, 659.25, 783.99]
+	for n in notes:
+		var total := int(SAMPLE_RATE * 0.09)
+		var phase := 0.0
+		for i in range(min(total, _playback.get_frames_available())):
+			var t := float(i) / float(total)
+			var env := sin(t * PI) * 0.24
+			phase += n / SAMPLE_RATE
+			var s := sin(phase * TAU) * env
+			_playback.push_frame(Vector2(s, s))
 
 func play_stress_tick() -> void:
-	if muted:
+	if not _ensure_playback():
 		return
-	_sfx_player.stream = _make_soft_tone(220.0, 0.10, 0.15)
-	_sfx_player.play()
-
-func _make_soft_tone(freq: float, duration: float, amp: float) -> AudioStreamWAV:
-	var mix_rate: int = 22050
-	var samples: int = int(mix_rate * duration)
-	var wav := AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = mix_rate
-	wav.stereo = false
-
-	var data := PackedByteArray()
-	data.resize(samples * 2)
-
-	for i in range(samples):
-		var t: float = float(i) / float(mix_rate)
-		var env: float = sin(PI * clamp(t / duration, 0.0, 1.0))
-		env = pow(env, 1.6)
-		# Мягкий синус + лёгкий обертон
-		var s: float = (sin(TAU * freq * t) * 0.78 + sin(TAU * freq * 2.0 * t) * 0.22) * env * amp
-		var pcm: int = int(clamp(s, -1.0, 1.0) * 32767.0)
-		data[i * 2] = pcm & 0xFF
-		data[i * 2 + 1] = (pcm >> 8) & 0xFF
-
-	wav.data = data
-	return wav
+	var total := int(SAMPLE_RATE * 0.11)
+	var phase := 0.0
+	for i in range(min(total, _playback.get_frames_available())):
+		var t := float(i) / float(total)
+		var env := (1.0 - t) * 0.26
+		phase += (240.0 - t * 65.0) / SAMPLE_RATE
+		var s := (sin(phase * TAU) + sin(phase * TAU * 2.0) * 0.4) * env
+		_playback.push_frame(Vector2(s, s))
