@@ -130,7 +130,7 @@ func _setup_step_items() -> void:
 					"offset": rim_offsets[i],
 					"value": 1.0,
 					"foam": 0.0,
-					"size": randf_range(26.0, 34.0),
+					"size": randf_range(28.0, 36.0),
 					"is_tuft": i < 4 or i == 6
 				})
 		Step.CLIP_NAILS:
@@ -143,7 +143,7 @@ func _setup_step_items() -> void:
 					"offset": offsets[i],
 					"value": 1.0,
 					"foam": 0.0,
-					"size": randf_range(26.0, 34.0)
+					"size": randf_range(28.0, 36.0)
 				})
 		Step.WASH_RINSE:
 			for i in range(8):
@@ -151,7 +151,7 @@ func _setup_step_items() -> void:
 					"offset": offsets[i],
 					"value": 0.0,
 					"foam": 1.0,
-					"size": randf_range(30.0, 38.0)
+					"size": randf_range(32.0, 40.0)
 				})
 		Step.TOWEL_WRAP, Step.BLOW_DRY:
 			for i in range(8):
@@ -159,7 +159,7 @@ func _setup_step_items() -> void:
 					"offset": offsets[i],
 					"value": 1.0,
 					"foam": 0.0,
-					"size": randf_range(20.0, 26.0)
+					"size": randf_range(22.0, 28.0)
 				})
 		Step.FINAL_TRIM:
 			var stray_offsets := [
@@ -171,7 +171,7 @@ func _setup_step_items() -> void:
 					"offset": off,
 					"value": 1.0,
 					"foam": 0.0,
-					"size": 22.0,
+					"size": 24.0,
 					"is_tuft": true
 				})
 
@@ -310,7 +310,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 	var r: float = _get_pet_radius()
 
 	if step == Step.UNPACK_CARRIER:
-		if pos.distance_to(center) <= r * 1.35:
+		if pos.distance_to(center) <= r * 1.45:
 			_carrier_door_open = min(1.0, _carrier_door_open + 0.36)
 			step_progress = _carrier_door_open * 100.0
 			calmness = clamp(calmness + 3.0, 0.0, 100.0)
@@ -324,7 +324,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 		return
 
 	if step == Step.PACK_CARRIER:
-		if pos.distance_to(center) <= r * 1.35:
+		if pos.distance_to(center) <= r * 1.45:
 			_carrier_door_open = max(0.0, _carrier_door_open - 0.36)
 			step_progress = (1.0 - _carrier_door_open) * 100.0
 			calmness = clamp(calmness + 2.5, 0.0, 100.0)
@@ -338,7 +338,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 		return
 
 	if step == Step.FINAL_STYLE:
-		if pos.distance_to(center) <= r * 1.15:
+		if pos.distance_to(center) <= r * 1.25:
 			_apply_final_style_finish()
 		return
 
@@ -357,7 +357,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 				if float(item["value"]) <= 0.05:
 					continue
 				var sp: Vector2 = center + Vector2(item["offset"]) * r
-				if pos.distance_to(sp) <= max(58.0, r * 0.44):
+				if pos.distance_to(sp) <= max(64.0, r * 0.45):
 					item["value"] = 0.0
 					hit_any = true
 					_fur_pile_count = min(14, _fur_pile_count + 1)
@@ -425,10 +425,10 @@ func _apply_towel_action(pos: Vector2) -> void:
 		if float(item["value"]) <= 0.05:
 			continue
 		var sp: Vector2 = center + Vector2(item["offset"]) * r
-		if pos.distance_to(sp) <= max(76.0, r * 0.62):
+		if pos.distance_to(sp) <= max(80.0, r * 0.62):
 			item["value"] = max(0.0, float(item["value"]) - 0.55)
 			dried_any = true
-	if dried_any or pos.distance_to(center) <= r * 1.1:
+	if dried_any or pos.distance_to(center) <= r * 1.15:
 		_towel_wrap_ratio = min(1.0, _towel_wrap_ratio + 0.18)
 		calmness = clamp(calmness + 2.2, 0.0, 100.0)
 		if _sound_tick_timer <= 0.0:
@@ -500,8 +500,11 @@ func _handle_drag_action(pos: Vector2, dist: float) -> void:
 				if in_love:
 					_status_lbl.text = "Мур-р! Шерсть ложится мягко, а пушок собирается рядом на столе!"
 				if _sound_tick_timer <= 0.0:
-					sound.play_brush_stroke()
-					_sound_tick_timer = 0.12
+					if in_love:
+						sound.play_purr()
+					else:
+						sound.play_brush_stroke()
+					_sound_tick_timer = 0.13
 				if randf() < 0.55:
 					_fur_pile_count = min(14, _fur_pile_count + 1)
 					var body_col: Color = pet.get("body_color", Color("e6b67c"))
@@ -523,7 +526,7 @@ func _handle_drag_action(pos: Vector2, dist: float) -> void:
 				_sound_tick_timer = 0.11
 			for item in _coat_items:
 				var sp: Vector2 = center + Vector2(item["offset"]) * r
-				if pos.distance_to(sp) <= max(68.0, r * 0.55):
+				if pos.distance_to(sp) <= max(72.0, r * 0.55):
 					item["foam"] = min(1.0, float(item["foam"]) + clamp(dist * 0.012, 0.04, 0.22))
 					item["value"] = max(0.0, 1.0 - float(item["foam"]))
 			if randf() < 0.65:
@@ -551,7 +554,7 @@ func _apply_shower_stream(delta: float) -> void:
 	var water_hit := _pointer_pos + Vector2(0, 52.0)
 	for item in _coat_items:
 		var sp: Vector2 = center + Vector2(item["offset"]) * r
-		if water_hit.distance_to(sp) <= max(76.0, r * 0.62):
+		if water_hit.distance_to(sp) <= max(80.0, r * 0.62):
 			item["foam"] = max(0.0, float(item["foam"]) - delta * 1.45)
 
 	if randf() < delta * 36.0:
@@ -587,7 +590,7 @@ func _apply_dryer_stream(delta: float) -> void:
 
 	for item in _coat_items:
 		var sp: Vector2 = center + Vector2(item["offset"]) * r
-		if _pointer_pos.distance_to(sp) <= max(78.0, r * 0.65):
+		if _pointer_pos.distance_to(sp) <= max(84.0, r * 0.65):
 			item["value"] = max(0.0, float(item["value"]) - delta * 1.35)
 
 	if randf() < delta * 26.0:
@@ -746,6 +749,28 @@ func _on_action_pressed() -> void:
 		visible = false
 		emit_signal("session_finished", pet, float(res["calm_ratio"]), int(res["reward"]))
 
+func _apply_cozy_button_theme(btn: Button, bg_col: Color, border_col: Color) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = bg_col
+	normal.border_color = border_col
+	normal.set_border_width_all(3)
+	normal.set_corner_radius_all(14)
+	normal.content_margin_left = 14
+	normal.content_margin_right = 14
+
+	var hover := normal.duplicate()
+	hover.bg_color = bg_col.lightened(0.05)
+
+	var pressed := normal.duplicate()
+	pressed.bg_color = bg_col.darkened(0.06)
+
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_color_override("font_color", Color("3c332b"))
+	btn.add_theme_color_override("font_hover_color", Color("3c332b"))
+	btn.add_theme_color_override("font_pressed_color", Color("3c332b"))
+
 func _refresh_ui() -> void:
 	_title_lbl.text = "%s • %s (%s)" % [pet.get("name", ""), pet.get("species", ""), pet.get("breed", "")]
 
@@ -817,7 +842,9 @@ func _rebuild_style_selectors() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 58)
 		b.add_theme_font_size_override("font_size", 21)
-		b.text = ("✓ " + a["label"]) if chosen_accessory == a["id"] else a["label"]
+		var sel: bool = (chosen_accessory == a["id"])
+		b.text = ("✓ " + a["label"]) if sel else a["label"]
+		_apply_cozy_button_theme(b, Color("dcebe2") if sel else Color("fffdf9"), Color("7da388") if sel else Color("cbb7a0"))
 		b.pressed.connect(func():
 			chosen_accessory = a["id"]
 			sound.play_soft_pop(1.2)
@@ -840,7 +867,9 @@ func _rebuild_style_selectors() -> void:
 		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sb.custom_minimum_size = Vector2(0, 56)
 		sb.add_theme_font_size_override("font_size", 21)
-		sb.text = ("✓ " + s["label"]) if chosen_scent == s["id"] else s["label"]
+		var sel_s: bool = (chosen_scent == s["id"])
+		sb.text = ("✓ " + s["label"]) if sel_s else s["label"]
+		_apply_cozy_button_theme(sb, Color("f3e7dc") if sel_s else Color("fffdf9"), Color("c99e76") if sel_s else Color("cbb7a0"))
 		sb.pressed.connect(func():
 			chosen_scent = s["id"]
 			sound.play_soft_pop(1.3)
@@ -853,6 +882,7 @@ func _rebuild_style_selectors() -> void:
 	apply_btn.text = "Завершить образ ✨"
 	apply_btn.custom_minimum_size = Vector2(0, 66)
 	apply_btn.add_theme_font_size_override("font_size", 24)
+	_apply_cozy_button_theme(apply_btn, Color("dcebe2"), Color("7da388"))
 	apply_btn.pressed.connect(_apply_final_style_finish)
 	_style_box.add_child(apply_btn)
 
@@ -891,6 +921,9 @@ func _rebuild_tool_buttons() -> void:
 		var is_active: bool = (active_tool == t)
 		var is_needed: bool = (t == req) or (step == Step.BLOW_DRY and t == Tool.CABINET)
 		btn.text = ("✓ " + entry["label"]) if is_active else (("• " + entry["label"]) if is_needed else entry["label"])
+		var bg := Color("dcebe2") if is_active else (Color("f5ebd9") if is_needed else Color("fffdf9"))
+		var bd := Color("7da388") if is_active else (Color("c99e76") if is_needed else Color("cbb7a0"))
+		_apply_cozy_button_theme(btn, bg, bd)
 		btn.pressed.connect(func(): _select_tool(t))
 		_tools_box.add_child(btn)
 
@@ -905,11 +938,11 @@ func _get_pet_center() -> Vector2:
 	var sz: Vector2 = _pad_panel.size if _pad_panel != null else Vector2(800, 900)
 	var shake_x: float = sin(_anim_time * 42.0) * 16.0 if _shake_timer > 0.0 else 0.0
 	var wobble: float = sin(_anim_time * (7.5 if stress > 65.0 else 2.8)) * (8.0 if stress > 65.0 else 3.0)
-	return Vector2(sz.x * 0.5 + wobble + shake_x, sz.y * 0.54)
+	return Vector2(sz.x * 0.5 + wobble + shake_x, sz.y * 0.53)
 
 func _get_pet_radius() -> float:
 	var sz: Vector2 = _pad_panel.size if _pad_panel != null else Vector2(800, 900)
-	var base_r: float = clamp(min(sz.x, sz.y) * 0.25, 125.0, 210.0)
+	var base_r: float = clamp(min(sz.x * 0.34, sz.y * 0.34), 165.0, 260.0)
 	return base_r * float(pet.get("size_scale", 1.0))
 
 func _get_nail_paw_center() -> Vector2:
@@ -940,20 +973,19 @@ func _draw_pet_pad() -> void:
 	var center := _get_pet_center()
 	var r: float = _get_pet_radius()
 
-	# Если это переноска (распаковка / запаковка) — рисуем корпус переноски сзади
 	var in_carrier_step: bool = (step == Step.UNPACK_CARRIER or step == Step.PACK_CARRIER)
 	if in_carrier_step:
 		_draw_carrier_back(center, r)
 
-	# Горка вычесанной шерсти сбоку на основном столе
+	# Объёмная горка вычесанной шерсти сбоку на столе
 	if location == Location.TABLE and _fur_pile_count > 0:
-		var pile_base := Vector2(sz.x - 135.0, sz.y * 0.74 - 8.0)
+		var pile_base := Vector2(sz.x - 145.0, sz.y * 0.74 - 10.0)
 		var body_col: Color = pet.get("body_color", Color("e6b67c"))
+		_draw_ellipse_shape(pile_base + Vector2(0, 10), 68.0, 14.0, Color(0.45, 0.36, 0.28, 0.22), false)
 		for k in range(_fur_pile_count):
-			var ox: float = ((k % 4) - 1.5) * 18.0
-			var oy: float = -floor(float(k) / 4.0) * 11.0
-			_pad_panel.draw_circle(pile_base + Vector2(ox, oy), 15.0, body_col.lightened(0.08))
-			_pad_panel.draw_circle(pile_base + Vector2(ox, oy), 15.0, Color("7a6858"), false, 2.0)
+			var ox: float = ((k % 4) - 1.5) * 20.0
+			var oy: float = -floor(float(k) / 4.0) * 12.0
+			_draw_shaded_sphere(pile_base + Vector2(ox, oy), 16.0, body_col.lightened(0.08), true)
 
 	if step == Step.BLOW_DRY and active_tool == Tool.CABINET:
 		_pad_panel.draw_rect(Rect2(center - Vector2(r * 1.35, r * 1.35), Vector2(r * 2.7, r * 2.5)), Color(0.76, 0.89, 0.83, 0.42))
@@ -969,7 +1001,6 @@ func _draw_pet_pad() -> void:
 	if step == Step.FINAL_STYLE or step == Step.PACK_CARRIER or step == Step.SUMMARY:
 		_draw_chosen_accessory(center, r)
 
-	# Передняя часть переноски и открывающаяся решётчатая дверца
 	if in_carrier_step:
 		_draw_carrier_front(center, r, _carrier_door_open)
 
@@ -987,8 +1018,8 @@ func _draw_pet_pad() -> void:
 
 	if step == Step.SUMMARY:
 		var frame := Rect2(center - Vector2(r * 1.45, r * 1.48), Vector2(r * 2.9, r * 2.75))
-		_pad_panel.draw_rect(frame, Color("fffdf9"), false, 10.0)
-		_pad_panel.draw_rect(frame, Color("c99e76"), false, 3.5)
+		_pad_panel.draw_rect(frame, Color("fffdf9"), false, 12.0)
+		_pad_panel.draw_rect(frame, Color("c99e76"), false, 4.0)
 
 	var body_col: Color = pet.get("body_color", Color("e6b67c"))
 	for item in _coat_items:
@@ -999,20 +1030,19 @@ func _draw_pet_pad() -> void:
 				var val: float = float(item["value"])
 				if val > 0.05:
 					var tuft_col: Color = body_col.lightened(0.08) if bool(item.get("is_tuft", false)) else body_col.darkened(0.24)
-					_pad_panel.draw_circle(sp, sz_item * val, tuft_col)
-					_pad_panel.draw_circle(sp, sz_item * val, Color("5c4d40"), false, 3.0)
+					_draw_shaded_sphere(sp, sz_item * val, tuft_col, true)
 			Step.WASH_SOAP, Step.WASH_RINSE:
 				var dirt: float = float(item["value"])
 				var foam: float = float(item["foam"])
 				if dirt > 0.05:
 					_pad_panel.draw_circle(sp, sz_item * dirt, Color(0.55, 0.45, 0.35, 0.55 * dirt))
 				if foam > 0.05:
-					_pad_panel.draw_circle(sp, sz_item * foam, Color(1.0, 1.0, 1.0, 0.92))
-					_pad_panel.draw_circle(sp + Vector2(10, -8), sz_item * 0.65 * foam, Color(0.92, 0.98, 1.0, 0.92))
+					_draw_shaded_sphere(sp, sz_item * foam, Color(0.96, 0.99, 1.0, 0.94), false)
+					_draw_shaded_sphere(sp + Vector2(12, -10), sz_item * 0.65 * foam, Color(1.0, 1.0, 1.0, 0.96), false)
 			Step.TOWEL_WRAP, Step.BLOW_DRY:
 				var drop: float = float(item["value"])
 				if drop > 0.05:
-					_pad_panel.draw_circle(sp, sz_item * 0.78 * drop, Color(0.54, 0.81, 0.95, 0.88))
+					_draw_shaded_sphere(sp, sz_item * 0.78 * drop, Color(0.54, 0.81, 0.95, 0.90), false)
 
 	if step == Step.CLIP_NAILS:
 		_draw_nail_clipping_overlay(sz)
@@ -1020,18 +1050,18 @@ func _draw_pet_pad() -> void:
 	if location == Location.BATH:
 		var bath_y: float = sz.y * 0.72
 		_pad_panel.draw_rect(Rect2(24, bath_y, sz.x - 48, sz.y - bath_y - 16), Color("b7d7e2"))
+		_pad_panel.draw_rect(Rect2(24, bath_y + 18, sz.x - 48, sz.y - bath_y - 34), Color("9ec4d1"))
 		_pad_panel.draw_rect(Rect2(18, bath_y - 12, sz.x - 36, 22), Color("eef8fb"))
 		_pad_panel.draw_rect(Rect2(24, bath_y, sz.x - 48, sz.y - bath_y - 16), Color("688694"), false, 3.5)
 
 	if toy_timer > 0.0:
 		var toy_pos := center + Vector2(-r * 1.12, r * 0.35 + sin(_anim_time * 12.0) * 11.0)
-		_pad_panel.draw_circle(toy_pos, 26.0, Color("e68c7a"))
-		_pad_panel.draw_circle(toy_pos, 26.0, Color("5c4d40"), false, 3.0)
+		_draw_shaded_sphere(toy_pos, 26.0, Color("e68c7a"), true)
 
 	for p in _particles:
 		var age_ratio: float = clamp(1.0 - float(p["age"]) / float(p["life"]), 0.0, 1.0)
 		var pc: Color = p["color"]
-		pc.a = age_ratio * 0.9
+		pc.a = age_ratio * 0.92
 		_pad_panel.draw_circle(Vector2(p["pos"]), float(p["radius"]), pc)
 
 	if active_tool != Tool.NONE and active_tool != Tool.CABINET and step != Step.FINAL_STYLE and step != Step.SUMMARY and not in_carrier_step:
@@ -1041,26 +1071,48 @@ func _draw_pet_pad() -> void:
 	if _transition_alpha > 0.01:
 		_pad_panel.draw_rect(Rect2(Vector2.ZERO, sz), Color(1.0, 0.99, 0.96, _transition_alpha * 0.85))
 
+func _draw_shaded_sphere(pos: Vector2, rad: float, base_col: Color, with_outline: bool = true) -> void:
+	_pad_panel.draw_circle(pos, rad, base_col.darkened(0.14))
+	_pad_panel.draw_circle(pos + Vector2(-rad * 0.06, -rad * 0.08), rad * 0.90, base_col)
+	_pad_panel.draw_circle(pos + Vector2(-rad * 0.24, -rad * 0.28), rad * 0.44, base_col.lightened(0.18))
+	if with_outline:
+		_pad_panel.draw_circle(pos, rad, Color("5c4d40"), false, 3.0)
+
+func _draw_shaded_ellipse(pos: Vector2, rx: float, ry: float, base_col: Color, with_outline: bool = true) -> void:
+	# Базовый объём + нижняя тень + верхний световой блик
+	_draw_ellipse_shape(pos, rx, ry, base_col.darkened(0.13), false)
+	_draw_ellipse_shape(pos + Vector2(-rx * 0.04, -ry * 0.07), rx * 0.93, ry * 0.91, base_col, false)
+	_draw_ellipse_shape(pos + Vector2(-rx * 0.16, -ry * 0.26), rx * 0.56, ry * 0.44, base_col.lightened(0.16), false)
+	if with_outline:
+		_draw_ellipse_outline(pos, rx, ry, Color("5c4d40"), 3.5)
+
+func _draw_ellipse_outline(pos: Vector2, rx: float, ry: float, col: Color, width: float) -> void:
+	var pts := PackedVector2Array()
+	for i in range(32):
+		var a := (float(i) / 32.0) * TAU
+		pts.append(pos + Vector2(cos(a) * rx, sin(a) * ry))
+	pts.append(pts[0])
+	_pad_panel.draw_polyline(pts, col, width)
+
 func _draw_carrier_back(center: Vector2, r: float) -> void:
 	var box := Rect2(center + Vector2(-r * 1.35, -r * 1.25), Vector2(r * 2.7, r * 2.25))
 	_pad_panel.draw_rect(box, Color("8fb39e"))
-	_pad_panel.draw_rect(Rect2(box.position + Vector2(18, 22), box.size - Vector2(36, 36)), Color("46574d"))
-	# Ручка сверху переноски
+	_pad_panel.draw_rect(Rect2(box.position + Vector2(0, 0), Vector2(box.size.x, 32)), Color("a6c9b4"))
+	_pad_panel.draw_rect(Rect2(box.position + Vector2(18, 22), box.size - Vector2(36, 36)), Color("3d4d44"))
 	_pad_panel.draw_rect(Rect2(center + Vector2(-r * 0.42, -r * 1.42), Vector2(r * 0.84, 22)), Color("d69e85"))
 	_pad_panel.draw_rect(box, Color("4a3f35"), false, 4.0)
 
 func _draw_carrier_front(center: Vector2, r: float, open_ratio: float) -> void:
 	var box := Rect2(center + Vector2(-r * 1.35, -r * 1.25), Vector2(r * 2.7, r * 2.25))
-	# Нижний поддон переноски
 	var tray := Rect2(box.position + Vector2(0, box.size.y * 0.52), Vector2(box.size.x, box.size.y * 0.48))
 	_pad_panel.draw_rect(tray, Color("a3c4b1"))
+	_pad_panel.draw_rect(Rect2(tray.position, Vector2(tray.size.x, 16)), Color("bce0cc"))
 	_pad_panel.draw_rect(tray, Color("4a3f35"), false, 4.0)
 
-	# Решётчатая дверца, которая распахивается влево по мере open_ratio
 	var door_full_w: float = box.size.x - 40.0
 	var door_w: float = max(24.0, door_full_w * (1.0 - open_ratio * 0.88))
 	var door := Rect2(box.position + Vector2(20, 24), Vector2(door_w, box.size.y - 44))
-	_pad_panel.draw_rect(door, Color(0.95, 0.97, 0.96, 0.25))
+	_pad_panel.draw_rect(door, Color(0.95, 0.97, 0.96, 0.22))
 	_pad_panel.draw_rect(door, Color("6e7b82"), false, 5.0)
 	for gx in range(int(door.position.x + 28), int(door.position.x + door.size.x - 10), 34):
 		_pad_panel.draw_line(Vector2(gx, door.position.y), Vector2(gx, door.position.y + door.size.y), Color("6e7b82"), 4.0)
@@ -1072,7 +1124,8 @@ func _draw_towel_wrap_overlay(center: Vector2, r: float, ratio: float) -> void:
 	var trim_col := Color("9fc4ab")
 	var wrap_w: float = r * 1.72 * clamp(ratio * 1.2, 0.4, 1.0)
 	var wrap_rect := Rect2(center + Vector2(-wrap_w * 0.5, -r * 0.05), Vector2(wrap_w, r * 0.95))
-	_pad_panel.draw_rect(wrap_rect, towel_col)
+	_pad_panel.draw_rect(wrap_rect, towel_col.darkened(0.05))
+	_pad_panel.draw_rect(Rect2(wrap_rect.position, Vector2(wrap_rect.size.x, wrap_rect.size.y * 0.45)), towel_col)
 	_pad_panel.draw_rect(wrap_rect, Color("bfa992"), false, 3.5)
 	_pad_panel.draw_line(wrap_rect.position, wrap_rect.position + Vector2(wrap_rect.size.x * 0.75, wrap_rect.size.y * 0.7), trim_col, 5.0)
 	_pad_panel.draw_line(wrap_rect.position + Vector2(wrap_rect.size.x, 0), wrap_rect.position + Vector2(wrap_rect.size.x * 0.25, wrap_rect.size.y * 0.7), trim_col, 5.0)
@@ -1093,8 +1146,7 @@ func _draw_nail_clipping_overlay(sz: Vector2) -> void:
 	_pad_panel.draw_rect(card, Color("c99e76"), false, 4.0)
 
 	var body_col: Color = pet.get("body_color", Color("e6b67c"))
-	_pad_panel.draw_circle(paw_center + Vector2(0, 35), 92.0, body_col)
-	_pad_panel.draw_circle(paw_center + Vector2(0, 35), 92.0, Color("5c4d40"), false, 3.0)
+	_draw_shaded_sphere(paw_center + Vector2(0, 35), 92.0, body_col, true)
 
 	for i in range(4):
 		var nx: float = paw_center.x + (-1.5 + float(i)) * 56.0
@@ -1126,7 +1178,7 @@ func _draw_chosen_accessory(center: Vector2, r: float) -> void:
 			var bow_r := PackedVector2Array([top_pos, top_pos + Vector2(34, -20), top_pos + Vector2(34, 20)])
 			_pad_panel.draw_colored_polygon(bow_l, bow_col)
 			_pad_panel.draw_colored_polygon(bow_r, bow_col)
-			_pad_panel.draw_circle(top_pos, 10.0, Color("fff4e8"))
+			_draw_shaded_sphere(top_pos, 11.0, Color("fff4e8"), false)
 		"crown":
 			var crown := PackedVector2Array([
 				top_pos + Vector2(-30, 14), top_pos + Vector2(-34, -18),
@@ -1149,13 +1201,13 @@ func _draw_chosen_accessory(center: Vector2, r: float) -> void:
 			var fpos := head_pos + Vector2(r * 0.42, -r * 0.48)
 			for ang in range(0, 360, 72):
 				var rad := deg_to_rad(float(ang))
-				_pad_panel.draw_circle(fpos + Vector2(cos(rad), sin(rad)) * 16.0, 12.0, bow_col)
-			_pad_panel.draw_circle(fpos, 10.0, Color("f7d97e"))
+				_draw_shaded_sphere(fpos + Vector2(cos(rad), sin(rad)) * 16.0, 12.0, bow_col, false)
+			_draw_shaded_sphere(fpos, 10.0, Color("f7d97e"), false)
 
 func _draw_ellipse_shape(pos: Vector2, rx: float, ry: float, col: Color, outline: bool = true) -> void:
 	var pts := PackedVector2Array()
-	for i in range(28):
-		var a := (float(i) / 28.0) * TAU
+	for i in range(32):
+		var a := (float(i) / 32.0) * TAU
 		pts.append(pos + Vector2(cos(a) * rx, sin(a) * ry))
 	_pad_panel.draw_colored_polygon(pts, col)
 	if outline:
@@ -1170,7 +1222,6 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 	var is_fluffy_done: bool = (step == Step.FINAL_TRIM or step == Step.FINAL_STYLE or step == Step.PACK_CARRIER or step == Step.SUMMARY)
 	var fluff: float = 1.09 if is_fluffy_done else 1.0
 
-	# Индивидуальные пропорции корпуса (rx, ry) для каждой породы
 	var body_rx: float = r * 0.72
 	var body_ry: float = r * 0.66
 	match vtype:
@@ -1199,68 +1250,58 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 			body_rx = r * 0.82 * fluff
 			body_ry = r * 0.68 * fluff
 
-	_draw_ellipse_shape(center + Vector2(0, body_ry + r * 0.24), body_rx * 1.05, r * 0.16, Color(0.45, 0.38, 0.32, 0.25), false)
+	# Мягкая контактная тень на поверхности стола
+	_draw_ellipse_shape(center + Vector2(0, body_ry + r * 0.25), body_rx * 1.12, r * 0.17, Color(0.42, 0.34, 0.26, 0.28), false)
 
-	# Уникальный хвост для каждой породы
 	var tail_speed: float = 8.0 if calmness > 70.0 else 3.8
 	var tail_swing: float = sin(_anim_time * tail_speed) * (20.0 if calmness > 70.0 else 10.0)
 	match vtype:
 		"bobtail":
-			# Фирменный короткий хвост-помпон курильского бобтейла!
-			_pad_panel.draw_circle(center + Vector2(body_rx * 0.96, r * 0.15 + tail_swing * 0.3), r * 0.24, acc_col)
-			_pad_panel.draw_circle(center + Vector2(body_rx * 0.96, r * 0.15 + tail_swing * 0.3), r * 0.24, Color("5c4d40"), false, 3.0)
+			_draw_shaded_sphere(center + Vector2(body_rx * 0.96, r * 0.15 + tail_swing * 0.3), r * 0.24, acc_col, true)
 		"mainecoon", "persian":
-			# Огромный пушистый хвост-опахало
-			_draw_ellipse_shape(center + Vector2(body_rx * 1.05, r * 0.05 + tail_swing), r * 0.44 * fluff, r * 0.26 * fluff, body_col)
-			_pad_panel.draw_circle(center + Vector2(body_rx * 1.25, -r * 0.05 + tail_swing), r * 0.24 * fluff, acc_col)
+			_draw_shaded_ellipse(center + Vector2(body_rx * 1.05, r * 0.05 + tail_swing), r * 0.44 * fluff, r * 0.26 * fluff, body_col, true)
+			_draw_shaded_sphere(center + Vector2(body_rx * 1.25, -r * 0.05 + tail_swing), r * 0.24 * fluff, acc_col, false)
 		"samoyed", "spitz":
-			# Пушистый хвост, закинутый кольцом на спину
-			_pad_panel.draw_circle(center + Vector2(body_rx * 0.86, -r * 0.22 + tail_swing * 0.5), r * 0.34 * fluff, acc_col)
-			_pad_panel.draw_circle(center + Vector2(body_rx * 0.86, -r * 0.22 + tail_swing * 0.5), r * 0.34 * fluff, Color("5c4d40"), false, 3.0)
+			_draw_shaded_sphere(center + Vector2(body_rx * 0.86, -r * 0.22 + tail_swing * 0.5), r * 0.34 * fluff, acc_col, true)
 		"corgi":
-			# У корги почти нет длинного хвоста — аккуратная пушистая «попка»
-			_draw_ellipse_shape(center + Vector2(body_rx * 0.92, r * 0.12), r * 0.22, r * 0.28, acc_col)
+			_draw_shaded_ellipse(center + Vector2(body_rx * 0.92, r * 0.12), r * 0.22, r * 0.28, acc_col, true)
 		"poodle":
-			# Хвост с круглым помпоном на кончике
 			_pad_panel.draw_line(center + Vector2(body_rx * 0.82, r * 0.12), center + Vector2(body_rx * 1.25, -r * 0.18 + tail_swing), body_col, 11.0)
-			_pad_panel.draw_circle(center + Vector2(body_rx * 1.28, -r * 0.20 + tail_swing), r * 0.22 * fluff, acc_col)
+			_draw_shaded_sphere(center + Vector2(body_rx * 1.28, -r * 0.20 + tail_swing), r * 0.22 * fluff, acc_col, true)
 		"dachshund":
-			# Длинный тонкий хвостик прутиком
-			_pad_panel.draw_line(center + Vector2(body_rx * 0.92, r * 0.12), center + Vector2(body_rx * 1.32, -r * 0.24 + tail_swing), body_col, 11.0)
+			_pad_panel.draw_line(center + Vector2(body_rx * 0.92, r * 0.12), center + Vector2(body_rx * 1.32, -r * 0.24 + tail_swing), body_col.darkened(0.1), 12.0)
+			_pad_panel.draw_line(center + Vector2(body_rx * 0.92, r * 0.12), center + Vector2(body_rx * 1.32, -r * 0.24 + tail_swing), body_col.lightened(0.1), 6.0)
 		_:
 			_pad_panel.draw_line(center + Vector2(body_rx * 0.85, r * 0.2), center + Vector2(body_rx * 1.28, -r * 0.08 + tail_swing), body_col, 22.0)
-			_pad_panel.draw_circle(center + Vector2(body_rx * 1.28, -r * 0.08 + tail_swing), 11.0, body_col)
+			_draw_shaded_sphere(center + Vector2(body_rx * 1.28, -r * 0.08 + tail_swing), 11.0, body_col, false)
 
-	# Корпус с анатомической формой
-	_draw_ellipse_shape(center + Vector2(0, r * 0.28), body_rx, body_ry, body_col)
+	# Объёмный корпус со светотенью
+	_draw_shaded_ellipse(center + Vector2(0, r * 0.28), body_rx, body_ry, body_col, true)
 
-	# Грудка / воротник
 	if vtype == "mainecoon" or vtype == "samoyed" or vtype == "spitz":
 		for gx in [-0.36, -0.18, 0.0, 0.18, 0.36]:
-			_pad_panel.draw_circle(center + Vector2(r * gx, r * 0.16), r * 0.24 * fluff, acc_col)
+			_draw_shaded_sphere(center + Vector2(r * gx, r * 0.16), r * 0.24 * fluff, acc_col, false)
 	elif vtype == "poodle":
 		for gx in [-0.24, 0.0, 0.24]:
-			_pad_panel.draw_circle(center + Vector2(r * gx, r * 0.22), r * 0.24 * fluff, acc_col)
+			_draw_shaded_sphere(center + Vector2(r * gx, r * 0.22), r * 0.24 * fluff, acc_col, false)
 	else:
-		_draw_ellipse_shape(center + Vector2(0, r * 0.34), body_rx * 0.56, body_ry * 0.62, acc_col, false)
+		_draw_shaded_ellipse(center + Vector2(0, r * 0.34), body_rx * 0.56, body_ry * 0.62, acc_col, false)
 
-	# Лапки (у таксы и корги короткие, у пуделя с помпонами, у бобтейла высокие задние)
 	if location != Location.BATH:
 		var leg_y: float = center.y + body_ry + r * 0.14
 		var leg_spread: float = body_rx * 0.56
 		if vtype == "dachshund" or vtype == "corgi":
-			_draw_ellipse_shape(Vector2(center.x - leg_spread, leg_y), r * 0.22, r * 0.13, acc_col)
-			_draw_ellipse_shape(Vector2(center.x + leg_spread, leg_y), r * 0.22, r * 0.13, acc_col)
+			_draw_shaded_ellipse(Vector2(center.x - leg_spread, leg_y), r * 0.22, r * 0.13, acc_col, true)
+			_draw_shaded_ellipse(Vector2(center.x + leg_spread, leg_y), r * 0.22, r * 0.13, acc_col, true)
 		elif vtype == "poodle":
 			_pad_panel.draw_line(Vector2(center.x - leg_spread, leg_y - 26), Vector2(center.x - leg_spread, leg_y + 10), body_col, 14.0)
 			_pad_panel.draw_line(Vector2(center.x + leg_spread, leg_y - 26), Vector2(center.x + leg_spread, leg_y + 10), body_col, 14.0)
-			_pad_panel.draw_circle(Vector2(center.x - leg_spread, leg_y + 4), r * 0.17 * fluff, acc_col)
-			_pad_panel.draw_circle(Vector2(center.x + leg_spread, leg_y + 4), r * 0.17 * fluff, acc_col)
+			_draw_shaded_sphere(Vector2(center.x - leg_spread, leg_y + 4), r * 0.17 * fluff, acc_col, true)
+			_draw_shaded_sphere(Vector2(center.x + leg_spread, leg_y + 4), r * 0.17 * fluff, acc_col, true)
 		else:
-			_draw_ellipse_shape(Vector2(center.x - leg_spread, leg_y), r * 0.18, r * 0.20, acc_col)
-			_draw_ellipse_shape(Vector2(center.x + leg_spread, leg_y), r * 0.18, r * 0.20, acc_col)
+			_draw_shaded_ellipse(Vector2(center.x - leg_spread, leg_y), r * 0.18, r * 0.20, acc_col, true)
+			_draw_shaded_ellipse(Vector2(center.x + leg_spread, leg_y), r * 0.18, r * 0.20, acc_col, true)
 
-	# Голова с индивидуальными пропорциями породы
 	var head_tilt: float = sin(_anim_time * 2.2) * 5.0
 	var head_offset_x: float = -body_rx * 0.34 if vtype == "dachshund" else 0.0
 	var head_pos := center + Vector2(head_tilt + head_offset_x, -body_ry * 0.68)
@@ -1283,13 +1324,11 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 			head_rx = r * 0.54
 			head_ry = r * 0.54
 
-	_draw_ellipse_shape(head_pos, head_rx, head_ry, body_col)
+	_draw_shaded_ellipse(head_pos, head_rx, head_ry, body_col, true)
 
-	# Уши и характерные черты мордочки для каждой породы
 	var ear_droop: float = r * 0.14 if stress > 65.0 else 0.0
 	match vtype:
 		"mainecoon":
-			# Высокие уши с длинными рысьими кисточками и массивная коробочка морды
 			_pad_panel.draw_colored_polygon(PackedVector2Array([
 				head_pos + Vector2(-head_rx * 0.82, -head_ry * 0.35),
 				head_pos + Vector2(-head_rx * 0.52, -head_ry * 1.48 + ear_droop),
@@ -1300,13 +1339,12 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 				head_pos + Vector2(head_rx * 0.52, -head_ry * 1.48 + ear_droop),
 				head_pos + Vector2(head_rx * 0.15, -head_ry * 0.72)
 			]), body_col)
-			# Рысьи кисточки на кончиках ушей!
 			_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.52, -head_ry * 1.48 + ear_droop), head_pos + Vector2(-head_rx * 0.62, -head_ry * 1.78 + ear_droop), acc_col, 5.0)
 			_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.52, -head_ry * 1.48 + ear_droop), head_pos + Vector2(head_rx * 0.62, -head_ry * 1.78 + ear_droop), acc_col, 5.0)
-			_draw_ellipse_shape(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.44, head_ry * 0.30, acc_col, false)
+			_draw_shaded_ellipse(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.44, head_ry * 0.30, acc_col, false)
 		"persian":
-			_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.68, head_ry * 0.20), r * 0.26, body_col)
-			_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.68, head_ry * 0.20), r * 0.26, body_col)
+			_draw_shaded_sphere(head_pos + Vector2(-head_rx * 0.68, head_ry * 0.20), r * 0.26, body_col, false)
+			_draw_shaded_sphere(head_pos + Vector2(head_rx * 0.68, head_ry * 0.20), r * 0.26, body_col, false)
 			_pad_panel.draw_colored_polygon(PackedVector2Array([
 				head_pos + Vector2(-head_rx * 0.82, -head_ry * 0.38),
 				head_pos + Vector2(-head_rx * 0.62, -head_ry * 1.05 + ear_droop),
@@ -1329,19 +1367,18 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 				head_pos + Vector2(head_rx * 0.08, -head_ry * 0.75)
 			]), body_col)
 		"lop_cat":
-			_draw_ellipse_shape(head_pos + Vector2(-head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col)
-			_draw_ellipse_shape(head_pos + Vector2(head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col)
+			_draw_shaded_ellipse(head_pos + Vector2(-head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col, true)
+			_draw_shaded_ellipse(head_pos + Vector2(head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col, true)
 		"corgi":
-			# Большие округлые лисьи уши корги и белая проточина!
-			_draw_ellipse_shape(head_pos + Vector2(-head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col)
-			_draw_ellipse_shape(head_pos + Vector2(head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col)
+			_draw_shaded_ellipse(head_pos + Vector2(-head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col, true)
+			_draw_shaded_ellipse(head_pos + Vector2(head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col, true)
 			_draw_ellipse_shape(head_pos + Vector2(-head_rx * 0.58, -head_ry * 1.02 + ear_droop), r * 0.13, r * 0.28, acc_col, false)
 			_draw_ellipse_shape(head_pos + Vector2(head_rx * 0.58, -head_ry * 1.02 + ear_droop), r * 0.13, r * 0.28, acc_col, false)
 			_pad_panel.draw_rect(Rect2(head_pos + Vector2(-r * 0.11, -head_ry * 0.65), Vector2(r * 0.22, head_ry * 0.85)), acc_col)
-			_draw_ellipse_shape(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.54, head_ry * 0.36, acc_col, false)
+			_draw_shaded_ellipse(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.54, head_ry * 0.36, acc_col, false)
 		"samoyed", "spitz":
-			_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.74, head_ry * 0.08), r * 0.26 * fluff, acc_col)
-			_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.74, head_ry * 0.08), r * 0.26 * fluff, acc_col)
+			_draw_shaded_sphere(head_pos + Vector2(-head_rx * 0.74, head_ry * 0.08), r * 0.26 * fluff, acc_col, false)
+			_draw_shaded_sphere(head_pos + Vector2(head_rx * 0.74, head_ry * 0.08), r * 0.26 * fluff, acc_col, false)
 			_pad_panel.draw_colored_polygon(PackedVector2Array([
 				head_pos + Vector2(-head_rx * 0.68, -head_ry * 0.42),
 				head_pos + Vector2(-head_rx * 0.44, -head_ry * 1.38 + ear_droop),
@@ -1352,29 +1389,27 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 				head_pos + Vector2(head_rx * 0.44, -head_ry * 1.38 + ear_droop),
 				head_pos + Vector2(head_rx * 0.10, -head_ry * 0.72)
 			]), body_col)
-			_draw_ellipse_shape(head_pos + Vector2(0, head_ry * 0.32), head_rx * 0.44, head_ry * 0.34, acc_col, false)
+			_draw_shaded_ellipse(head_pos + Vector2(0, head_ry * 0.32), head_rx * 0.44, head_ry * 0.34, acc_col, false)
 		"poodle":
 			for cx in [-0.26, 0.0, 0.26]:
-				_pad_panel.draw_circle(head_pos + Vector2(r * cx, -head_ry * 0.86), r * 0.24 * fluff, body_col)
-			_draw_ellipse_shape(head_pos + Vector2(-head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * fluff, r * 0.44 * fluff, acc_col)
-			_draw_ellipse_shape(head_pos + Vector2(head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * fluff, r * 0.44 * fluff, acc_col)
+				_draw_shaded_sphere(head_pos + Vector2(r * cx, -head_ry * 0.86), r * 0.24 * fluff, body_col, false)
+			_draw_shaded_ellipse(head_pos + Vector2(-head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * fluff, r * 0.44 * fluff, acc_col, true)
+			_draw_shaded_ellipse(head_pos + Vector2(head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * fluff, r * 0.44 * fluff, acc_col, true)
 		"dachshund", "beagle":
-			# Длинные висячие уши и вытянутая мордочка
-			_draw_ellipse_shape(head_pos + Vector2(-head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col)
-			_draw_ellipse_shape(head_pos + Vector2(head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col)
-			_draw_ellipse_shape(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.52, head_ry * 0.40, acc_col)
+			_draw_shaded_ellipse(head_pos + Vector2(-head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col, true)
+			_draw_shaded_ellipse(head_pos + Vector2(head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col, true)
+			_draw_shaded_ellipse(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.52, head_ry * 0.40, acc_col, true)
 
-	# Глазки
 	if _is_blinking or (calmness >= 70.0 and stress < 45.0):
 		_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.46, -head_ry * 0.08), head_pos + Vector2(-head_rx * 0.20, -head_ry * 0.18), Color("3c332b"), 3.5)
 		_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.20, -head_ry * 0.18), head_pos + Vector2(head_rx * 0.46, -head_ry * 0.08), Color("3c332b"), 3.5)
 	else:
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08), r * 0.10, eye_col)
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08), r * 0.10, eye_col)
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08), r * 0.055, Color("261f1a"))
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08), r * 0.055, Color("261f1a"))
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.30, -head_ry * 0.12), r * 0.032, Color("ffffff"))
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.38, -head_ry * 0.12), r * 0.032, Color("ffffff"))
+		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08), r * 0.105, eye_col)
+		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08), r * 0.105, eye_col)
+		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08), r * 0.058, Color("261f1a"))
+		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08), r * 0.058, Color("261f1a"))
+		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.30, -head_ry * 0.12), r * 0.034, Color("ffffff"))
+		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.38, -head_ry * 0.12), r * 0.034, Color("ffffff"))
 
 	if calmness > 60.0 or dryer_heat > 35.0:
 		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.52, head_ry * 0.16), r * 0.085, Color(0.92, 0.56, 0.52, 0.45))
@@ -1383,6 +1418,7 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 	var is_dog: bool = str(pet.get("species", "")) == "Пёсик"
 	var nose_col := Color("3c332b") if is_dog else Color("d98a7e")
 	_pad_panel.draw_circle(head_pos + Vector2(0, head_ry * 0.22), r * 0.08, nose_col)
+	_pad_panel.draw_circle(head_pos + Vector2(-r * 0.025, head_ry * 0.19), r * 0.025, Color("ffffff"))
 	_pad_panel.draw_line(head_pos + Vector2(-r * 0.13, head_ry * 0.42), head_pos + Vector2(0, head_ry * 0.34), Color("3c332b"), 3.0)
 	_pad_panel.draw_line(head_pos + Vector2(0, head_ry * 0.34), head_pos + Vector2(r * 0.13, head_ry * 0.42), Color("3c332b"), 3.0)
 
@@ -1411,6 +1447,7 @@ func _draw_location_background(sz: Vector2) -> void:
 		_pad_panel.draw_rect(Rect2(44, 34, 180, 155), Color("d4c4b2"), false, 3.0)
 		var table_y: float = sz.y * 0.74
 		_pad_panel.draw_rect(Rect2(16, table_y, sz.x - 32, sz.y - table_y - 14), Color("e4d2bc"))
+		_pad_panel.draw_rect(Rect2(16, table_y, sz.x - 32, 18), Color("f0e2d0"))
 		_pad_panel.draw_line(Vector2(16, table_y), Vector2(sz.x - 16, table_y), Color("bfa78c"), 4.0)
 	elif location == Location.BATH:
 		for tx in range(36, int(sz.x - 36), 64):
@@ -1425,29 +1462,30 @@ func _draw_active_tool(pos: Vector2) -> void:
 	match active_tool:
 		Tool.BRUSH:
 			var bp := pos + Vector2(anim_pulse, 0)
-			_pad_panel.draw_rect(Rect2(bp - Vector2(30, 18), Vector2(60, 36)), Color("9fc4ab"))
-			_pad_panel.draw_rect(Rect2(bp - Vector2(30, 18), Vector2(60, 36)), Color("4a6354"), false, 3.0)
+			_pad_panel.draw_rect(Rect2(bp - Vector2(32, 18), Vector2(64, 36)), Color("9fc4ab"))
+			_pad_panel.draw_rect(Rect2(bp - Vector2(32, 18), Vector2(64, 14)), Color("bce0c8"))
+			_pad_panel.draw_rect(Rect2(bp - Vector2(32, 18), Vector2(64, 36)), Color("4a6354"), false, 3.0)
 			for bx in [-20, -10, 0, 10, 20]:
 				_pad_panel.draw_line(bp + Vector2(bx, 18), bp + Vector2(bx, 28), Color("4a6354"), 3.0)
 		Tool.SCISSORS:
 			var snip: float = 4.0 if _tool_anim_timer > 0.0 else 18.0
-			_pad_panel.draw_line(pos + Vector2(-24, -snip), pos + Vector2(24, snip), Color("5c5c5c"), 5.0)
-			_pad_panel.draw_line(pos + Vector2(-24, snip), pos + Vector2(24, -snip), Color("5c5c5c"), 5.0)
-			_pad_panel.draw_circle(pos + Vector2(-24, -snip), 10.0, Color("d98a7e"), false, 3.5)
-			_pad_panel.draw_circle(pos + Vector2(-24, snip), 10.0, Color("d98a7e"), false, 3.5)
+			_pad_panel.draw_line(pos + Vector2(-24, -snip), pos + Vector2(24, snip), Color("5c5c5c"), 5.5)
+			_pad_panel.draw_line(pos + Vector2(-24, snip), pos + Vector2(24, -snip), Color("5c5c5c"), 5.5)
+			_pad_panel.draw_circle(pos + Vector2(-24, -snip), 10.5, Color("d98a7e"), false, 3.5)
+			_pad_panel.draw_circle(pos + Vector2(-24, snip), 10.5, Color("d98a7e"), false, 3.5)
 		Tool.CLIPPER:
 			var jaw: float = 3.0 if _tool_anim_timer > 0.0 else 15.0
-			_pad_panel.draw_line(pos + Vector2(-26, 26), pos + Vector2(-6, 0), Color("e68c7a"), 7.0)
-			_pad_panel.draw_line(pos + Vector2(26, 26), pos + Vector2(6, 0), Color("e68c7a"), 7.0)
-			_pad_panel.draw_line(pos + Vector2(-6, 0), pos + Vector2(-jaw, -24), Color("7a8691"), 6.0)
-			_pad_panel.draw_line(pos + Vector2(6, 0), pos + Vector2(jaw, -24), Color("7a8691"), 6.0)
+			_pad_panel.draw_line(pos + Vector2(-26, 26), pos + Vector2(-6, 0), Color("e68c7a"), 7.5)
+			_pad_panel.draw_line(pos + Vector2(26, 26), pos + Vector2(6, 0), Color("e68c7a"), 7.5)
+			_pad_panel.draw_line(pos + Vector2(-6, 0), pos + Vector2(-jaw, -24), Color("7a8691"), 6.5)
+			_pad_panel.draw_line(pos + Vector2(6, 0), pos + Vector2(jaw, -24), Color("7a8691"), 6.5)
 		Tool.SHAMPOO:
 			var sq: float = 1.0 + sin(_anim_time * 18.0) * 0.12 if _tool_anim_timer > 0.0 else 1.0
 			_pad_panel.draw_rect(Rect2(pos - Vector2(28 * sq, 18), Vector2(56 * sq, 36)), Color("f5e09b"))
+			_pad_panel.draw_rect(Rect2(pos - Vector2(28 * sq, 18), Vector2(56 * sq, 14)), Color("fff0ba"))
 			_pad_panel.draw_rect(Rect2(pos - Vector2(28 * sq, 18), Vector2(56 * sq, 36)), Color("8c7a48"), false, 3.0)
 		Tool.SHOWER:
-			_pad_panel.draw_circle(pos, 26.0, Color("9ab8c7"))
-			_pad_panel.draw_circle(pos, 26.0, Color("506b78"), false, 3.5)
+			_draw_shaded_sphere(pos, 26.0, Color("9ab8c7"), true)
 			for sx in [-12, 0, 12]:
 				_pad_panel.draw_circle(pos + Vector2(sx, 8), 3.0, Color("eef8fb"))
 		Tool.TOWEL:
@@ -1457,7 +1495,7 @@ func _draw_active_tool(pos: Vector2) -> void:
 			_pad_panel.draw_line(tp + Vector2(-28, 12), tp + Vector2(28, 12), Color("9fc4ab"), 4.0)
 		Tool.DRYER:
 			var dp := pos + Vector2(0, anim_pulse * 0.5)
-			_pad_panel.draw_circle(dp, 24.0, Color("8ea6b5"))
+			_draw_shaded_sphere(dp, 24.0, Color("8ea6b5"), true)
 			_pad_panel.draw_line(dp + Vector2(18, 0), dp + Vector2(48, -14), Color("f2cf8d"), 5.0)
 			_pad_panel.draw_line(dp + Vector2(18, 6), dp + Vector2(48, 18), Color("f2cf8d"), 5.0)
 
@@ -1496,6 +1534,7 @@ func _build_ui() -> void:
 	close_btn.text = "В зал"
 	close_btn.custom_minimum_size = Vector2(120, 56)
 	close_btn.add_theme_font_size_override("font_size", 24)
+	_apply_cozy_button_theme(close_btn, Color("fffdf9"), Color("cbb7a0"))
 	close_btn.pressed.connect(func():
 		visible = false
 		closed_early.emit()
@@ -1543,6 +1582,7 @@ func _build_ui() -> void:
 	_toy_btn.text = "Дать любимую игрушку"
 	_toy_btn.custom_minimum_size = Vector2(0, 66)
 	_toy_btn.add_theme_font_size_override("font_size", 24)
+	_apply_cozy_button_theme(_toy_btn, Color("f5ebd9"), Color("c99e76"))
 	_toy_btn.pressed.connect(_on_toy_pressed)
 	vbox.add_child(_toy_btn)
 
@@ -1551,6 +1591,7 @@ func _build_ui() -> void:
 	_action_btn.custom_minimum_size = Vector2(0, 74)
 	_action_btn.visible = false
 	_action_btn.add_theme_font_size_override("font_size", 25)
+	_apply_cozy_button_theme(_action_btn, Color("dcebe2"), Color("7da388"))
 	_action_btn.pressed.connect(_on_action_pressed)
 	vbox.add_child(_action_btn)
 
@@ -1566,8 +1607,13 @@ func _make_bar(parent: VBoxContainer, label_text: String, fill_col: Color) -> Pr
 	var bar := ProgressBar.new()
 	bar.max_value = 100.0
 	bar.custom_minimum_size = Vector2(0, 24)
+	var bg_sb := StyleBoxFlat.new()
+	bg_sb.bg_color = Color("eadfd2")
+	bg_sb.set_corner_radius_all(8)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fill_col
+	sb.set_corner_radius_all(8)
+	bar.add_theme_stylebox_override("background", bg_sb)
 	bar.add_theme_stylebox_override("fill", sb)
 	row.add_child(bar)
 
