@@ -45,7 +45,7 @@ func roll_next_pet() -> void:
 		waiting_pet = state.spawn_pet_client()
 		_walk_progress = 0.0
 		if sound != null:
-			sound.play_soft_pop(1.35)
+			sound.play_door_bell()
 		queue_redraw()
 
 func get_current_pet() -> Dictionary:
@@ -53,6 +53,17 @@ func get_current_pet() -> Dictionary:
 		waiting_pet = state.spawn_pet_client()
 		_walk_progress = 1.0
 	return waiting_pet
+
+func _get_view_size() -> Vector2:
+	var vp := get_viewport_rect().size
+	if vp.x <= 10.0 or vp.y <= 10.0:
+		return Vector2(1080.0, 1920.0)
+	return vp
+
+func _get_effective_zoom() -> float:
+	var vp := _get_view_size()
+	var auto_fit: float = max(1.0, vp.x / 1080.0)
+	return camera_zoom * auto_fit
 
 func _process(delta: float) -> void:
 	_anim_time += delta
@@ -163,7 +174,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			state.update_decor_position(dragging_decor_idx, _screen_to_world(mm.position))
 			queue_redraw()
 		elif _pan_dragging:
-			var delta_x: float = (mm.position.x - _last_pointer_pos.x) / camera_zoom
+			var ez: float = _get_effective_zoom()
+			var delta_x: float = (mm.position.x - _last_pointer_pos.x) / ez
 			_last_pointer_pos = mm.position
 			camera_pan_x = clamp(camera_pan_x - delta_x, -260.0, 260.0)
 			queue_redraw()
@@ -183,8 +195,11 @@ func _get_guest_group_pos() -> Vector2:
 	return DOOR_POS.lerp(RECEPTION_POS + Vector2(0, 118), eased)
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var center := Vector2(540.0, 960.0)
-	return (screen_pos - center) / camera_zoom + center + Vector2(camera_pan_x, 0.0)
+	var vp := _get_view_size()
+	var screen_center := vp * 0.5
+	var world_center := Vector2(540.0, 960.0)
+	var ez: float = _get_effective_zoom()
+	return (screen_pos - screen_center) / ez + world_center + Vector2(camera_pan_x, 0.0)
 
 func _find_decor_at(world_pos: Vector2) -> int:
 	for i in range(state.placed_decor.size() - 1, -1, -1):
@@ -210,8 +225,11 @@ func _draw() -> void:
 	if state == null:
 		return
 
-	var center := Vector2(540.0, 960.0)
-	draw_set_transform(center - (center - Vector2(camera_pan_x, 0.0)) * camera_zoom, 0.0, Vector2.ONE * camera_zoom)
+	var vp := _get_view_size()
+	var screen_center := vp * 0.5
+	var world_center := Vector2(540.0, 960.0)
+	var ez: float = _get_effective_zoom()
+	draw_set_transform(screen_center - (world_center + Vector2(camera_pan_x, 0.0)) * ez, 0.0, Vector2.ONE * ez)
 
 	var wall_color := Color("fbf7f1")
 	var wainscot_color := Color("f0e6d8")
@@ -223,16 +241,18 @@ func _draw() -> void:
 		wainscot_color = Color("e3efe7")
 		floor_color = Color("d8e6dd")
 
-	draw_rect(Rect2(-1600, -400, 4280, 1680), wall_color)
-	draw_rect(Rect2(-1600, 860, 4280, 420), wainscot_color)
-	draw_line(Vector2(-1600, 860), Vector2(2680, 860), line_soft, 4.0)
-	for wx_panel in range(-1440, 2560, 180):
+	draw_rect(Rect2(-2400, -800, 5880, 2080), wall_color)
+	draw_rect(Rect2(-2400, 860, 5880, 420), wainscot_color)
+	draw_line(Vector2(-2400, 860), Vector2(3480, 860), line_soft, 4.0)
+	for wx_panel in range(-2160, 3280, 180):
 		draw_rect(Rect2(wx_panel, 885, 145, 360), line_soft.lightened(0.35), false, 2.5)
 
-	draw_rect(Rect2(-1600, 1280, 4280, 1200), floor_color)
+	draw_rect(Rect2(-2400, 1280, 5880, 1600), floor_color)
 	for fy in [1360.0, 1450.0, 1540.0, 1630.0, 1720.0]:
-		draw_line(Vector2(-1600, fy), Vector2(2680, fy), line_soft.lightened(0.22), 2.5)
+		draw_line(Vector2(-2400, fy), Vector2(3480, fy), line_soft.lightened(0.22), 2.5)
 
+	# Центральный коврик с объёмной окантовкой
+	draw_circle(Vector2(540, 1348), 276.0, Color(0.45, 0.36, 0.28, 0.16))
 	draw_circle(Vector2(540, 1340), 270.0, Color("f6efe6"))
 	draw_circle(Vector2(540, 1340), 270.0, Color("d4be9f"), false, 5.0)
 	draw_circle(Vector2(540, 1340), 248.0, Color("e8d6be"), false, 2.5)
@@ -243,7 +263,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([
 			Vector2(wx + 14, 696), Vector2(wx + 266, 696),
 			Vector2(wx + 330, 860), Vector2(wx - 50, 860)
-		]), Color(1.0, 0.98, 0.88, 0.38))
+		]), Color(1.0, 0.98, 0.88, 0.42))
 		draw_rect(Rect2(wx, 330, 280, 380), Color("cbb7a0"), false, 5.0)
 		draw_line(Vector2(wx + 140, 330), Vector2(wx + 140, 710), Color("cbb7a0"), 3.5)
 		draw_line(Vector2(wx, 520), Vector2(wx + 280, 520), Color("cbb7a0"), 3.5)
@@ -297,6 +317,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_cosmetic_shelf(pos: Vector2) -> void:
+	draw_rect(Rect2(pos - Vector2(76, 144), Vector2(164, 300)), Color(0.45, 0.36, 0.28, 0.16))
 	draw_rect(Rect2(pos - Vector2(82, 150), Vector2(164, 300)), Color("eadbc8"))
 	draw_rect(Rect2(pos - Vector2(82, 150), Vector2(164, 300)), Color("bfa990"), false, 4.0)
 	for sy in [-65.0, 30.0, 125.0]:
@@ -309,9 +330,10 @@ func _draw_cosmetic_shelf(pos: Vector2) -> void:
 	draw_rect(Rect2(pos + Vector2(18, -8), Vector2(38, 34)), Color("d99b84"))
 
 func _draw_reception_desk(pos: Vector2) -> void:
+	draw_rect(Rect2(pos - Vector2(158, 36), Vector2(330, 96)), Color(0.45, 0.36, 0.28, 0.18))
 	var rect := Rect2(pos - Vector2(165, 44), Vector2(330, 88))
 	draw_rect(rect, Color("e6d2bc"))
-	draw_rect(Rect2(pos - Vector2(174, 54), Vector2(348, 20)), Color("f7efe4"))
+	draw_rect(Rect2(pos - Vector2(174, 54), Vector2(348, 22)), Color("f7efe4"))
 	draw_rect(rect, Color("7a6858"), false, 4.0)
 	draw_rect(Rect2(pos + Vector2(-95, -34), Vector2(66, 28)), Color("fffdf9"))
 	draw_circle(pos + Vector2(88, -26), 12.0, Color("e7c888"))
@@ -319,6 +341,7 @@ func _draw_reception_desk(pos: Vector2) -> void:
 	draw_string(font, pos + Vector2(-84, 20), "Стойка приёма", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color("3c332b"))
 
 func _draw_grooming_table(pos: Vector2, count: int) -> void:
+	draw_rect(Rect2(pos - Vector2(134, 48), Vector2(284, 120)), Color(0.45, 0.36, 0.28, 0.16))
 	draw_line(pos + Vector2(-115, -55), pos + Vector2(-115, -175), Color("8d99a6"), 6.0)
 	draw_line(pos + Vector2(-115, -175), pos + Vector2(15, -175), Color("8d99a6"), 6.0)
 	draw_line(pos + Vector2(0, -175), pos + Vector2(0, -135), Color("d98a7e"), 3.0)
@@ -326,23 +349,25 @@ func _draw_grooming_table(pos: Vector2, count: int) -> void:
 	draw_rect(Rect2(pos + Vector2(97, 52), Vector2(18, 56)), Color("8c7765"))
 	var rect := Rect2(pos - Vector2(142, 56), Vector2(284, 112))
 	draw_rect(rect, Color("dfc6aa"))
-	draw_rect(Rect2(pos - Vector2(132, 46), Vector2(264, 32)), Color("f4ebe0"))
+	draw_rect(Rect2(pos - Vector2(132, 46), Vector2(264, 34)), Color("f4ebe0"))
 	draw_rect(rect, Color("7a6858"), false, 4.0)
 	var font: Font = ThemeDB.fallback_font
 	draw_string(font, pos + Vector2(-120, 26), "Стол груминга (x%d)" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("3c332b"))
 
 func _draw_wash_bath(pos: Vector2, count: int) -> void:
+	draw_rect(Rect2(pos - Vector2(132, 48), Vector2(280, 120)), Color(0.45, 0.36, 0.28, 0.16))
 	draw_line(pos + Vector2(105, -54), pos + Vector2(105, -145), Color("94a5b0"), 6.0)
 	draw_line(pos + Vector2(105, -145), pos + Vector2(55, -145), Color("94a5b0"), 6.0)
 	draw_circle(pos + Vector2(50, -138), 10.0, Color("b7d3dc"))
 	var rect := Rect2(pos - Vector2(140, 56), Vector2(280, 112))
 	draw_rect(rect, Color("c4dee6"))
-	draw_rect(Rect2(pos - Vector2(128, 44), Vector2(256, 30)), Color("eef8fb"))
+	draw_rect(Rect2(pos - Vector2(128, 44), Vector2(256, 32)), Color("eef8fb"))
 	draw_rect(rect, Color("6c848f"), false, 4.0)
 	var font: Font = ThemeDB.fallback_font
 	draw_string(font, pos + Vector2(-80, 26), "Мойка (x%d)" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("34434a"))
 
 func _draw_dry_zone(pos: Vector2, count: int, has_cabinet: bool) -> void:
+	draw_rect(Rect2(pos - Vector2(137, 50), Vector2(290, 124)), Color(0.45, 0.36, 0.28, 0.16))
 	var title: String = "Сушильный шкаф" if has_cabinet else "Зона сушки"
 	var col: Color = Color("c5dcd1") if has_cabinet else Color("e8d6c0")
 	var rect := Rect2(pos - Vector2(145, 58), Vector2(290, 116))
@@ -361,9 +386,12 @@ func _draw_arrived_guest_and_pet(base_pos: Vector2, pet: Dictionary) -> void:
 	var hair_col: Color = pet.get("owner_hair", Color("6b4e3d"))
 
 	var owner_pos := base_pos + Vector2(-85, -16 - walk_bob)
+	draw_circle(owner_pos + Vector2(0, 68), 32.0, Color(0.42, 0.34, 0.26, 0.22))
 	draw_rect(Rect2(owner_pos + Vector2(-28, -14), Vector2(56, 78)), shirt_col)
+	draw_rect(Rect2(owner_pos + Vector2(-28, -14), Vector2(22, 78)), shirt_col.lightened(0.12))
 	draw_rect(Rect2(owner_pos + Vector2(-28, -14), Vector2(56, 78)), Color("4a3f35"), false, 3.0)
 	draw_circle(owner_pos + Vector2(0, -42), 28.0, Color("f2d2b6"))
+	draw_circle(owner_pos + Vector2(-6, -46), 18.0, Color("f9e1cc"))
 	draw_circle(owner_pos + Vector2(0, -42), 28.0, Color("4a3f35"), false, 3.0)
 	draw_arc(owner_pos + Vector2(0, -45), 28.0, PI, TAU, 18, hair_col, 10.0)
 	draw_circle(owner_pos + Vector2(-9, -42), 3.5, Color("3c332b"))
@@ -371,11 +399,9 @@ func _draw_arrived_guest_and_pet(base_pos: Vector2, pet: Dictionary) -> void:
 
 	var pet_pos := base_pos + Vector2(58, 18 - walk_bob * 0.8)
 	if in_carrier:
-		# Хозяин держит ручку переноски с питомцем внутри
 		draw_line(owner_pos + Vector2(26, 20), pet_pos + Vector2(-24, -36), Color("d69e85"), 5.0)
 		_draw_hall_carrier(pet_pos, pet)
 	else:
-		# Крупные породы (корги, самоед, бигль) идут рядом на поводке
 		draw_line(owner_pos + Vector2(26, 16), pet_pos + Vector2(-22, -14), Color("c98a78"), 3.5)
 		var tex: Texture2D = _get_optional_texture(str(pet.get("sprite_path", "")))
 		if tex != null:
@@ -387,6 +413,7 @@ func _draw_arrived_guest_and_pet(base_pos: Vector2, pet: Dictionary) -> void:
 	if _walk_progress >= 0.85:
 		var pulse: float = sin(_anim_time * 4.0) * 4.0
 		var bubble := Rect2(base_pos + Vector2(-225, 76 + pulse), Vector2(450, 78))
+		draw_rect(Rect2(bubble.position + Vector2(5, 6), bubble.size), Color(0.42, 0.34, 0.26, 0.16))
 		draw_rect(bubble, Color("fffdf9"))
 		draw_rect(bubble, Color("7da388"), false, 4.0)
 		var font: Font = ThemeDB.fallback_font
@@ -395,13 +422,11 @@ func _draw_arrived_guest_and_pet(base_pos: Vector2, pet: Dictionary) -> void:
 		draw_string(font, bubble.position + Vector2(16, 62), "Нажми, чтобы принять заказ →", HORIZONTAL_ALIGNMENT_LEFT, 418, 20, Color("5a8d76"))
 
 func _draw_hall_carrier(p: Vector2, pet: Dictionary) -> void:
+	draw_circle(p + Vector2(0, 40), 42.0, Color(0.42, 0.34, 0.26, 0.22))
 	var box := Rect2(p + Vector2(-52, -38), Vector2(104, 76))
-	# Верх и ручка переноски
 	draw_rect(box, Color("8fb39e"))
 	draw_rect(Rect2(p + Vector2(-22, -48), Vector2(44, 12)), Color("d69e85"))
-	# Нижний поддон
 	draw_rect(Rect2(box.position + Vector2(0, 40), Vector2(104, 36)), Color("a3c4b1"))
-	# Окошко с питомцем внутри
 	var win := Rect2(box.position + Vector2(12, 10), Vector2(80, 52))
 	draw_rect(win, Color("46574d"))
 	var body_col: Color = pet.get("body_color", Color("e6b67c"))
@@ -411,7 +436,6 @@ func _draw_hall_carrier(p: Vector2, pet: Dictionary) -> void:
 	draw_circle(p + Vector2(8, 0), 4.0, Color("fffdf9"))
 	draw_circle(p + Vector2(-8, 0), 2.2, eye_col)
 	draw_circle(p + Vector2(8, 0), 2.2, eye_col)
-	# Решётка дверцы
 	draw_rect(win, Color("7a8691"), false, 3.0)
 	for gx in [win.position.x + 20.0, win.position.x + 40.0, win.position.x + 60.0]:
 		draw_line(Vector2(gx, win.position.y), Vector2(gx, win.position.y + win.size.y), Color("7a8691"), 2.5)
@@ -446,6 +470,8 @@ func _draw_breed_miniature(p: Vector2, pet: Dictionary) -> void:
 		rx = 42.0
 		ry = 36.0
 
+	_draw_ellipse_mini(p + Vector2(0, ry + 14), rx * 1.05, 8.0, Color(0.42, 0.34, 0.26, 0.24), false)
+
 	if vtype == "bobtail":
 		draw_circle(p + Vector2(rx * 0.95, 8 + tail_swing * 0.3), 11.0, acc_col)
 	elif vtype == "mainecoon" or vtype == "persian" or vtype == "spitz" or vtype == "samoyed":
@@ -458,14 +484,13 @@ func _draw_breed_miniature(p: Vector2, pet: Dictionary) -> void:
 	else:
 		draw_line(p + Vector2(rx * 0.85, 8), p + Vector2(rx * 1.25, -8 + tail_swing), body_col, 9.0)
 
-	_draw_ellipse_mini(p + Vector2(0, 12), rx, ry, body_col)
-	if vtype == "mainecoon" or vtype == "poodle" or vtype == "spitz" or vtype == "samoyed":
-		draw_circle(p + Vector2(-16 * s, 4), 17.0 * s, acc_col)
-		draw_circle(p + Vector2(16 * s, 4), 17.0 * s, acc_col)
+	_draw_ellipse_mini(p + Vector2(0, 12), rx, ry, body_col.darkened(0.1), true)
+	_draw_ellipse_mini(p + Vector2(-2, 9), rx * 0.88, ry * 0.84, body_col, false)
 
 	var head := p + Vector2(-rx * 0.25 if vtype == "dachshund" else 0.0, -ry * 0.95)
 	var hr: float = 28.0 * clamp(s, 0.88, 1.15)
-	draw_circle(head, hr, body_col)
+	draw_circle(head, hr, body_col.darkened(0.08))
+	draw_circle(head + Vector2(-2, -3), hr * 0.88, body_col)
 	draw_circle(head, hr, Color("5c4d40"), false, 2.8)
 
 	match vtype:
@@ -505,6 +530,7 @@ func _draw_breed_miniature(p: Vector2, pet: Dictionary) -> void:
 func _draw_decor_item(pos: Vector2, item: Dictionary, is_selected: bool) -> void:
 	var id: String = str(item.get("id", ""))
 	var col: Color = item.get("color", Color("6f9e7b"))
+	draw_circle(pos + Vector2(0, 42), 34.0, Color(0.42, 0.34, 0.26, 0.18))
 	if id.begins_with("plant"):
 		draw_rect(Rect2(pos + Vector2(-28, 8), Vector2(56, 38)), Color("c98e6b"))
 		draw_rect(Rect2(pos + Vector2(-28, 8), Vector2(56, 38)), Color("6e4d3b"), false, 3.0)
@@ -538,6 +564,7 @@ func _draw_staff_character(pos: Vector2, staff_name: String, idx: int, is_workin
 	var apron: Color = apron_cols[idx % apron_cols.size()]
 	var work_bob: float = sin(_anim_time * 10.0) * 3.0 if is_working else 0.0
 	var p := pos + Vector2(0, work_bob)
+	draw_circle(p + Vector2(0, 52), 26.0, Color(0.42, 0.34, 0.26, 0.2))
 	draw_rect(Rect2(p + Vector2(-24, -12), Vector2(48, 62)), apron)
 	draw_rect(Rect2(p + Vector2(-24, -12), Vector2(48, 62)), Color("4a3f35"), false, 2.5)
 	draw_circle(p + Vector2(0, -36), 24.0, Color("f0cfb0"))
