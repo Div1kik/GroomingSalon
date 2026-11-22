@@ -251,7 +251,6 @@ func _draw() -> void:
 	for fy in [1360.0, 1450.0, 1540.0, 1630.0, 1720.0]:
 		draw_line(Vector2(-2400, fy), Vector2(3480, fy), line_soft.lightened(0.22), 2.5)
 
-	# Центральный коврик с объёмной окантовкой
 	draw_circle(Vector2(540, 1348), 276.0, Color(0.45, 0.36, 0.28, 0.16))
 	draw_circle(Vector2(540, 1340), 270.0, Color("f6efe6"))
 	draw_circle(Vector2(540, 1340), 270.0, Color("d4be9f"), false, 5.0)
@@ -402,13 +401,16 @@ func _draw_arrived_guest_and_pet(base_pos: Vector2, pet: Dictionary) -> void:
 		draw_line(owner_pos + Vector2(26, 20), pet_pos + Vector2(-24, -36), Color("d69e85"), 5.0)
 		_draw_hall_carrier(pet_pos, pet)
 	else:
-		draw_line(owner_pos + Vector2(26, 16), pet_pos + Vector2(-22, -14), Color("c98a78"), 3.5)
+		# Питомец на поводке любопытно оглядывается и принюхивается в зале
+		var sniff_step: float = sin(_anim_time * 3.2) * 8.0 if _walk_progress >= 1.0 else 0.0
+		var live_pet_pos := pet_pos + Vector2(sniff_step, 0)
+		draw_line(owner_pos + Vector2(26, 16), live_pet_pos + Vector2(-22, -14), Color("c98a78"), 3.5)
 		var tex: Texture2D = _get_optional_texture(str(pet.get("sprite_path", "")))
 		if tex != null:
 			var t_size := Vector2(150, 150)
-			draw_texture_rect(tex, Rect2(pet_pos - t_size * 0.5, t_size), false)
+			draw_texture_rect(tex, Rect2(live_pet_pos - t_size * 0.5, t_size), false)
 		else:
-			_draw_breed_miniature(pet_pos, pet)
+			_draw_breed_miniature(live_pet_pos, pet)
 
 	if _walk_progress >= 0.85:
 		var pulse: float = sin(_anim_time * 4.0) * 4.0
@@ -431,11 +433,12 @@ func _draw_hall_carrier(p: Vector2, pet: Dictionary) -> void:
 	draw_rect(win, Color("46574d"))
 	var body_col: Color = pet.get("body_color", Color("e6b67c"))
 	var eye_col: Color = pet.get("eye_color", Color("ffffff"))
-	draw_circle(p + Vector2(0, 4), 22.0, body_col)
-	draw_circle(p + Vector2(-8, 0), 4.0, Color("fffdf9"))
-	draw_circle(p + Vector2(8, 0), 4.0, Color("fffdf9"))
-	draw_circle(p + Vector2(-8, 0), 2.2, eye_col)
-	draw_circle(p + Vector2(8, 0), 2.2, eye_col)
+	var peek_x: float = sin(_anim_time * 3.6) * 6.0
+	draw_circle(p + Vector2(peek_x, 4), 22.0, body_col)
+	draw_circle(p + Vector2(-8 + peek_x, 0), 4.0, Color("fffdf9"))
+	draw_circle(p + Vector2(8 + peek_x, 0), 4.0, Color("fffdf9"))
+	draw_circle(p + Vector2(-8 + peek_x, 0), 2.2, eye_col)
+	draw_circle(p + Vector2(8 + peek_x, 0), 2.2, eye_col)
 	draw_rect(win, Color("7a8691"), false, 3.0)
 	for gx in [win.position.x + 20.0, win.position.x + 40.0, win.position.x + 60.0]:
 		draw_line(Vector2(gx, win.position.y), Vector2(gx, win.position.y + win.size.y), Color("7a8691"), 2.5)
@@ -487,7 +490,8 @@ func _draw_breed_miniature(p: Vector2, pet: Dictionary) -> void:
 	_draw_ellipse_mini(p + Vector2(0, 12), rx, ry, body_col.darkened(0.1), true)
 	_draw_ellipse_mini(p + Vector2(-2, 9), rx * 0.88, ry * 0.84, body_col, false)
 
-	var head := p + Vector2(-rx * 0.25 if vtype == "dachshund" else 0.0, -ry * 0.95)
+	var head_tilt: float = sin(_anim_time * 2.8) * 3.5
+	var head := p + Vector2((-rx * 0.25 if vtype == "dachshund" else 0.0) + head_tilt, -ry * 0.95)
 	var hr: float = 28.0 * clamp(s, 0.88, 1.15)
 	draw_circle(head, hr, body_col.darkened(0.08))
 	draw_circle(head + Vector2(-2, -3), hr * 0.88, body_col)
