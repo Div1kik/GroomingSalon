@@ -21,8 +21,14 @@ var dry_stations: int = 1
 var has_drying_cabinet: bool = false
 var equipment_tier: int = 1 # 1 .. 4
 
+var tool_upgrades: Dictionary = {
+	"quiet_dryer": false,
+	"spa_shampoo": false,
+	"soft_brush": false
+}
+
 var pet_memory: Dictionary = {}
-var known_clients: Array[Dictionary] = [] # постоянные клиенты, которые могут вернуться
+var known_clients: Array[Dictionary] = []
 var hired_staff: Array[Dictionary] = []
 
 var candidate_pool: Array[Dictionary] = [
@@ -33,6 +39,8 @@ var candidate_pool: Array[Dictionary] = [
 		"min_level": 1,
 		"salary": 250,
 		"income_bonus": 35,
+		"service_reward": 85,
+		"work_speed": 1.0,
 		"rep_delta": 0.08,
 		"phrase": "Какой мягкий хвостик! Сейчас всё сделаем аккуратно."
 	},
@@ -43,6 +51,8 @@ var candidate_pool: Array[Dictionary] = [
 		"min_level": 2,
 		"salary": 420,
 		"income_bonus": 60,
+		"service_reward": 125,
+		"work_speed": 1.35,
 		"rep_delta": 0.14,
 		"phrase": "Тише-тише, я включу самый мягкий поток воздуха."
 	},
@@ -53,6 +63,8 @@ var candidate_pool: Array[Dictionary] = [
 		"min_level": 3,
 		"salary": 680,
 		"income_bonus": 95,
+		"service_reward": 175,
+		"work_speed": 1.65,
 		"rep_delta": 0.22,
 		"phrase": "Сначала познакомимся и дадим любимую игрушку — никакого стресса!"
 	},
@@ -63,6 +75,8 @@ var candidate_pool: Array[Dictionary] = [
 		"min_level": 4,
 		"salary": 950,
 		"income_bonus": 140,
+		"service_reward": 230,
+		"work_speed": 2.0,
 		"rep_delta": 0.30,
 		"phrase": "Даже в полночь у нас тихо, уютно и по расписанию."
 	}
@@ -81,7 +95,6 @@ var decor_catalog: Array[Dictionary] = [
 	{"id": "lamp_warm", "label": "Тёплый торшер", "category": "Атмосфера", "price": 300, "color": Color("e7c888")}
 ]
 
-# Пулы для процедурной генерации питомцев, пород, окрасов и характеров
 const BREED_POOL: Array[Dictionary] = [
 	{"species": "Котик", "breed": "Персидский", "visual_type": "persian", "coat": "Длинная шёлковая шерсть", "coat_type": "long", "sprite_path": "res://assets/pets/persian.png"},
 	{"species": "Котик", "breed": "Мейн-кун", "visual_type": "persian", "coat": "Густой воротник и кисточки", "coat_type": "long", "sprite_path": "res://assets/pets/mainecoon.png"},
@@ -120,28 +133,49 @@ const COAT_PALETTES: Array[Dictionary] = [
 const TEMPERAMENTS: Array[Dictionary] = [
 	{
 		"fear_water": false, "fear_dryer": true,
-		"habit": "Боится громкого фена, но обожает плавное расчёсывание.",
-		"problem": "ужасно боится шума фена после прошлого опыта",
-		"wish": "Бережная сушка + вычесать колтуны"
+		"habit": "Обожает почесушки за ушками, но не любит, когда трогают лапки.",
+		"problem": "ужасно боится шума фена, а когти уже пора подравнять",
+		"wish": "Бережная сушка + стрижка когтей",
+		"love_zone": "ears",
+		"sensitive_zone": "paws"
 	},
 	{
 		"fear_water": true, "fear_dryer": false,
-		"habit": "Недолюбливает воду — лучше сначала успокоить и дать игрушку.",
-		"problem": "испачкался на прогулке, но воду совсем не любит",
-		"wish": "Мягкое купание + ароматный шампунь"
+		"habit": "Тает от поглаживаний под подбородком, но стесняется трогать животик.",
+		"problem": "испачкался на прогулке и зарос по бокам",
+		"wish": "Мягкое купание + контурная стрижка",
+		"love_zone": "chin",
+		"sensitive_zone": "belly"
 	},
 	{
 		"fear_water": true, "fear_dryer": true,
-		"habit": "Очень чувствительный хвостик: ценит тишину и внимание.",
-		"problem": "стесняется незнакомых мест и громких звуков",
-		"wish": "Деликатный спа-уход без спешки"
+		"habit": "Любит лёгкое поглаживание спинки, пугается резких движений у лап.",
+		"problem": "очень стеснительный хвостик, просит деликатный спа-уход",
+		"wish": "Деликатный спа-комплекс без спешки",
+		"love_zone": "back",
+		"sensitive_zone": "paws"
 	},
 	{
 		"fear_water": false, "fear_dryer": false,
-		"habit": "Дружелюбный непоседа — обожает внимание и наводить красоту.",
-		"problem": "зарос перед выходными и просит стильную укладку",
-		"wish": "Полный комплекс + праздничный бантик"
+		"habit": "Обожает чесаться за ушками и позировать в красивых аксессуарах.",
+		"problem": "готовится к фотосессии и просит стильный образ",
+		"wish": "Полный комплекс + праздничный образ",
+		"love_zone": "ears",
+		"sensitive_zone": "belly"
 	}
+]
+
+const ACCESSORY_PREFS: Array[Dictionary] = [
+	{"id": "bow", "label": "Шёлковый бантик"},
+	{"id": "crown", "label": "Мини-корона"},
+	{"id": "bandana", "label": "Стильная бандана"},
+	{"id": "flower", "label": "Весенний цветочек"}
+]
+
+const SCENT_PREFS: Array[Dictionary] = [
+	{"id": "lavender", "label": "Лаванда"},
+	{"id": "vanilla", "label": "Тёплая ваниль"},
+	{"id": "apple", "label": "Свежее яблоко"}
 ]
 
 const TOY_POOL: Array[String] = [
@@ -184,19 +218,9 @@ var is_visiting_guest: bool = false
 var active_guest_salon: Dictionary = {}
 
 func _ready() -> void:
-	hired_staff.append({
-		"id": "anna",
-		"name": "Аня",
-		"role": "Грумер-универсал",
-		"min_level": 1,
-		"salary": 250,
-		"income_bonus": 35,
-		"rep_delta": 0.08,
-		"phrase": "Какой мягкий хвостик! Сейчас всё сделаем аккуратно."
-	})
+	pass
 
 func spawn_pet_client() -> Dictionary:
-	# С вероятностью 35% возвращается один из постоянных довольных клиентов
 	if known_clients.size() >= 2 and randf() < 0.35:
 		var returning: Dictionary = known_clients[randi() % known_clients.size()].duplicate(true)
 		var mem_ret: Dictionary = pet_memory.get(returning["id"], {"trust": 0.0, "visits": 0, "banished": false})
@@ -204,21 +228,23 @@ func spawn_pet_client() -> Dictionary:
 			returning["trust"] = mem_ret.get("trust", 0.0)
 			returning["visits"] = mem_ret.get("visits", 0)
 			returning["base_price"] = get_service_price()
-			returning["owner_replica"] = "«Снова здравствуйте! %s так понравилось в прошлый раз, что мы пришли освежить причёску!»" % returning["name"]
+			returning["owner_replica"] = "«Снова здравствуйте! %s так понравилось в прошлый раз, что мы пришли освежить образ (%s + аромат «%s»)!»" % [
+				returning["name"], returning.get("pref_acc_label", "бантик"), returning.get("pref_scent_label", "лаванда")
+			]
 			return returning
 
-	# Процедурная генерация нового уникального клиента
 	var breed_info: Dictionary = BREED_POOL[randi() % BREED_POOL.size()]
 	var is_cat: bool = str(breed_info["species"]) == "Котик"
 	var pet_name: String = CAT_NAMES[randi() % CAT_NAMES.size()] if is_cat else DOG_NAMES[randi() % DOG_NAMES.size()]
 	var owner_name: String = OWNER_NAMES[randi() % OWNER_NAMES.size()]
 
-	# Для самоеда чаще подбираем светлый окрас
 	var pal: Dictionary = COAT_PALETTES[randi() % COAT_PALETTES.size()]
 	if str(breed_info["breed"]) == "Самоед":
 		pal = COAT_PALETTES[4]
 
 	var temp: Dictionary = TEMPERAMENTS[randi() % TEMPERAMENTS.size()]
+	var acc_pref: Dictionary = ACCESSORY_PREFS[randi() % ACCESSORY_PREFS.size()]
+	var scent_pref: Dictionary = SCENT_PREFS[randi() % SCENT_PREFS.size()]
 	var toy: String = TOY_POOL[randi() % TOY_POOL.size()]
 	var bow_col: Color = BOW_COLORS[randi() % BOW_COLORS.size()]
 	var owner_shirt: Color = OWNER_SHIRTS[randi() % OWNER_SHIRTS.size()]
@@ -227,14 +253,16 @@ func spawn_pet_client() -> Dictionary:
 	var uid: String = "%s_%s_%s" % [breed_info["visual_type"], pet_name, owner_name]
 	var mem: Dictionary = pet_memory.get(uid, {"trust": 0.0, "visits": 0, "banished": false})
 
-	var replica: String = "«Здравствуйте! Я %s, а это %s (%s). У нас %s — приведёте в порядок?»" % [
+	var replica: String = "«Здравствуйте! Я %s, а это %s (%s). У нас %s. В финале очень хотим %s и лёгкий аромат «%s»!»" % [
 		owner_name,
 		pet_name,
 		str(breed_info["breed"]).to_lower(),
-		str(temp["problem"])
+		str(temp["problem"]),
+		str(acc_pref["label"]).to_lower(),
+		str(scent_pref["label"])
 	]
 
-	var client := {
+	return {
 		"id": uid,
 		"visual_type": breed_info["visual_type"],
 		"sprite_path": breed_info["sprite_path"],
@@ -243,7 +271,13 @@ func spawn_pet_client() -> Dictionary:
 		"owner_shirt": owner_shirt,
 		"owner_hair": owner_hair,
 		"owner_replica": replica,
-		"wish_tag": temp["wish"],
+		"wish_tag": "%s + %s" % [acc_pref["label"], scent_pref["label"]],
+		"pref_acc": acc_pref["id"],
+		"pref_acc_label": acc_pref["label"],
+		"pref_scent": scent_pref["id"],
+		"pref_scent_label": scent_pref["label"],
+		"love_zone": temp["love_zone"],
+		"sensitive_zone": temp["sensitive_zone"],
 		"species": breed_info["species"],
 		"breed": breed_info["breed"],
 		"coat": "%s (%s окрас)" % [breed_info["coat"], pal["name"]],
@@ -260,7 +294,21 @@ func spawn_pet_client() -> Dictionary:
 		"visits": mem.get("visits", 0),
 		"base_price": get_service_price()
 	}
-	return client
+
+func buy_tool_upgrade(key: String, cost: int) -> bool:
+	if bool(tool_upgrades.get(key, false)) or money < cost:
+		return false
+	money -= cost
+	tool_upgrades[key] = true
+	equipment_tier = min(4, equipment_tier + 1)
+	reputation = clamp(reputation + 0.15, 1.0, 10.0)
+	emit_signal("state_changed")
+	return true
+
+func add_staff_auto_income(amount: int) -> void:
+	money += amount
+	reputation = clamp(reputation + 0.03, 1.0, 10.0)
+	emit_signal("state_changed")
 
 func record_pet_outcome(pet_id: String, calm_score: float, earned_money: int, pet_snapshot: Dictionary = {}) -> void:
 	money += earned_money
