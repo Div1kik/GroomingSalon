@@ -4,8 +4,8 @@ class_name GroomingMinigame
 signal session_finished(pet_data: Dictionary, calm_ratio: float, reward_money: int)
 signal closed_early
 
-enum Location { TABLE, BATH, DRY_AREA }
-enum Step { CALM_BRUSH, TRIM_COAT, CLIP_NAILS, WASH_SOAP, WASH_RINSE, TOWEL_PAT, BLOW_DRY, FINAL_STYLE, SUMMARY }
+enum Location { TABLE, BATH }
+enum Step { CALM_BRUSH, TRIM_COAT, CLIP_NAILS, WASH_SOAP, WASH_RINSE, TOWEL_WRAP, BLOW_DRY, FINAL_TRIM, FINAL_STYLE, SUMMARY }
 enum Tool { NONE, BRUSH, SCISSORS, CLIPPER, SHAMPOO, SHOWER, TOWEL, DRYER, CABINET }
 
 var state: GameState
@@ -23,8 +23,12 @@ var dryer_heat: float = 0.0
 
 var chosen_accessory: String = "bow"
 var chosen_scent: String = "lavender"
-var _style_applied_acc: bool = false
-var _style_applied_scent: bool = false
+
+# Анимации инструментов и состояний
+var _tool_anim_timer: float = 0.0
+var _towel_wrap_ratio: float = 0.0
+var _fur_pile_count: int = 0
+var _sound_tick_timer: float = 0.0
 
 # Тайминг для стрижки когтей
 var _nail_cursor: float = 0.0
@@ -88,8 +92,9 @@ func start_new_pet(preset_pet: Dictionary = {}) -> void:
 	_transition_alpha = 1.0
 	_shake_timer = 0.0
 	_sensitive_cooldown = 0.0
-	_style_applied_acc = false
-	_style_applied_scent = false
+	_tool_anim_timer = 0.0
+	_towel_wrap_ratio = 0.0
+	_fur_pile_count = 0
 	chosen_accessory = str(pet.get("pref_acc", "bow"))
 	chosen_scent = str(pet.get("pref_scent", "lavender"))
 	_nails_done = [false, false, false, false]
@@ -112,7 +117,6 @@ func _setup_step_items() -> void:
 	]
 	match step:
 		Step.TRIM_COAT:
-			# Отросшие пушистые пряди по контуру + пара колтунов
 			var rim_offsets := [
 				Vector2(-0.76, 0.18), Vector2(0.76, 0.18),
 				Vector2(-0.68, 0.54), Vector2(0.68, 0.54),
@@ -147,13 +151,26 @@ func _setup_step_items() -> void:
 					"foam": 1.0,
 					"size": randf_range(30.0, 38.0)
 				})
-		Step.TOWEL_PAT, Step.BLOW_DRY:
+		Step.TOWEL_WRAP, Step.BLOW_DRY:
 			for i in range(8):
 				_coat_items.append({
 					"offset": offsets[i],
 					"value": 1.0,
 					"foam": 0.0,
 					"size": randf_range(20.0, 26.0)
+				})
+		Step.FINAL_TRIM:
+			var stray_offsets := [
+				Vector2(-0.74, 0.12), Vector2(0.74, 0.15),
+				Vector2(-0.62, -0.52), Vector2(0.62, -0.52)
+			]
+			for off in stray_offsets:
+				_coat_items.append({
+					"offset": off,
+					"value": 1.0,
+					"foam": 0.0,
+					"size": 22.0,
+					"is_tuft": true
 				})
 
 func _vibrate_tap(ms: int = 24) -> void:
@@ -171,6 +188,10 @@ func _process(delta: float) -> void:
 		_shake_timer = max(0.0, _shake_timer - delta)
 	if _sensitive_cooldown > 0.0:
 		_sensitive_cooldown = max(0.0, _sensitive_cooldown - delta)
+	if _tool_anim_timer > 0.0:
+		_tool_anim_timer = max(0.0, _tool_anim_timer - delta)
+	if _sound_tick_timer > 0.0:
+		_sound_tick_timer = max(0.0, _sound_tick_timer - delta)
 	if toy_timer > 0.0:
 		toy_timer = max(0.0, toy_timer - delta)
 
@@ -241,6 +262,7 @@ func _process(delta: float) -> void:
 func _select_tool(t: Tool) -> void:
 	active_tool = t
 	_stroking = false
+	_tool_anim_timer = 0.25
 	sound.play_soft_pop(1.15)
 	_vibrate_tap(16)
 	_refresh_ui()
@@ -297,7 +319,9 @@ func _handle_tap_action(pos: Vector2) -> void:
 	var r: float = _get_pet_radius()
 
 	match step:
-		Step.TRIM_COAT:
+		Step.TRIM_COAT, Step.FINAL_TRIM:
+			_tool_anim_timer = 0.24
+			sound.play_scissors_snip()
 			var hit_any: bool = false
 			for item in _coat_items:
 				if float(item["value"]) <= 0.05:
@@ -306,7 +330,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 				if pos.distance_to(sp) <= max(58.0, r * 0.44):
 					item["value"] = 0.0
 					hit_any = true
-					sound.play_soft_pop(1.32)
+					_fur_pile_count = min(14, _fur_pile_count + 1)
 					_vibrate_tap(28)
 					for _k in range(6):
 						_particles.append({
@@ -327,11 +351,11 @@ func _handle_tap_action(pos: Vector2) -> void:
 			_recalc_items_progress()
 
 		Step.CLIP_NAILS:
-			# Проверяем попадание в зелёную зону тайминга (0.34 .. 0.66)
+			_tool_anim_timer = 0.25
 			if _nail_cursor >= 0.33 and _nail_cursor <= 0.67:
 				_nails_done[_active_nail_idx] = true
 				calmness = clamp(calmness + 6.0, 0.0, 100.0)
-				sound.play_soft_pop(1.4)
+				sound.play_clipper_snip()
 				_vibrate_tap(30)
 				var paw_center := _get_nail_paw_center()
 				var nail_x: float = paw_center.x + (-1.5 + float(_active_nail_idx)) * 56.0
@@ -351,7 +375,7 @@ func _handle_tap_action(pos: Vector2) -> void:
 				if _active_nail_idx >= 4:
 					_advance_step()
 				else:
-					_status_lbl.text = "Идеально! Осталось подстричь когтей: %d" % (4 - _active_nail_idx)
+					_status_lbl.text = "Щёлк! Идеальный срез! Осталось когтей: %d" % (4 - _active_nail_idx)
 			else:
 				stress = clamp(stress + 9.0, 0.0, 100.0)
 				_shake_timer = 0.45
@@ -359,30 +383,39 @@ func _handle_tap_action(pos: Vector2) -> void:
 				_vibrate_tap(60)
 				_status_lbl.text = "Слишком близко к сосуду! Лови бегунок строго в зелёной зоне."
 
-		Step.TOWEL_PAT:
-			var dried_any: bool = false
-			for item in _coat_items:
-				if float(item["value"]) <= 0.05:
-					continue
-				var sp: Vector2 = center + Vector2(item["offset"]) * r
-				if pos.distance_to(sp) <= max(66.0, r * 0.52):
-					item["value"] = max(0.0, float(item["value"]) - 0.55)
-					dried_any = true
-			if dried_any:
-				calmness = clamp(calmness + 2.5, 0.0, 100.0)
-				sound.play_soft_pop(1.2)
-				_vibrate_tap(18)
-				for _k in range(4):
-					_particles.append({
-						"pos": pos,
-						"vel": Vector2(randf_range(-55, 55), randf_range(-75, -20)),
-						"gravity": 110.0,
-						"age": 0.0,
-						"life": 0.6,
-						"radius": 8.0,
-						"color": Color("fffdf9")
-					})
-			_recalc_items_progress()
+		Step.TOWEL_WRAP:
+			_apply_towel_action(pos)
+
+func _apply_towel_action(pos: Vector2) -> void:
+	var center := _get_pet_center()
+	var r: float = _get_pet_radius()
+	_tool_anim_timer = 0.22
+	var dried_any: bool = false
+	for item in _coat_items:
+		if float(item["value"]) <= 0.05:
+			continue
+		var sp: Vector2 = center + Vector2(item["offset"]) * r
+		if pos.distance_to(sp) <= max(76.0, r * 0.62):
+			item["value"] = max(0.0, float(item["value"]) - 0.55)
+			dried_any = true
+	if dried_any or pos.distance_to(center) <= r * 1.1:
+		_towel_wrap_ratio = min(1.0, _towel_wrap_ratio + 0.18)
+		calmness = clamp(calmness + 2.2, 0.0, 100.0)
+		if _sound_tick_timer <= 0.0:
+			sound.play_brush_stroke()
+			_sound_tick_timer = 0.14
+		_vibrate_tap(18)
+		for _k in range(4):
+			_particles.append({
+				"pos": pos + Vector2(randf_range(-25, 25), randf_range(-25, 25)),
+				"vel": Vector2(randf_range(-55, 55), randf_range(-75, -20)),
+				"gravity": 110.0,
+				"age": 0.0,
+				"life": 0.6,
+				"radius": 8.0,
+				"color": Color("fffdf9")
+			})
+	_recalc_items_progress()
 
 func _handle_drag_action(pos: Vector2, dist: float) -> void:
 	var required: Tool = _get_required_tool()
@@ -392,6 +425,7 @@ func _handle_drag_action(pos: Vector2, dist: float) -> void:
 	var center := _get_pet_center()
 	var r: float = _get_pet_radius()
 	var gain: float = clamp(dist * 0.22, 0.5, 4.5)
+	_tool_anim_timer = 0.18
 
 	match step:
 		Step.CALM_BRUSH:
@@ -418,29 +452,36 @@ func _handle_drag_action(pos: Vector2, dist: float) -> void:
 				stress = clamp(stress - gain * 1.1 * zone_mult * brush_bonus, 0.0, 100.0)
 				step_progress = clamp(step_progress + gain * 1.35 * zone_mult * brush_bonus, 0.0, 100.0)
 				if in_love:
-					_status_lbl.text = "Мур-р! Питомец обожает, когда чешут эту зону — доверие растёт!"
-				sound.play_soft_pop(1.25 if in_love else 1.05)
-				if randf() < 0.45:
+					_status_lbl.text = "Мур-р! Шерсть ложится мягко, а пушок собирается рядом на столе!"
+				if _sound_tick_timer <= 0.0:
+					sound.play_brush_stroke()
+					_sound_tick_timer = 0.12
+				# Вычесанная шерсть падает рядом на стол
+				if randf() < 0.55:
+					_fur_pile_count = min(14, _fur_pile_count + 1)
+					var body_col: Color = pet.get("body_color", Color("e6b67c"))
 					_particles.append({
-						"pos": pos,
-						"vel": Vector2(randf_range(-30, 30), randf_range(-65, -20)),
-						"gravity": 0.0,
+						"pos": pos + Vector2(randf_range(-16, 16), 10),
+						"vel": Vector2(randf_range(40, 120), randf_range(-40, 60)),
+						"gravity": 240.0,
 						"age": 0.0,
-						"life": 0.7,
-						"radius": 9.0 if in_love else 7.0,
-						"color": Color("e68c7a") if in_love else Color("9fc4ab")
+						"life": 0.85,
+						"radius": randf_range(9.0, 15.0),
+						"color": body_col.lightened(0.12)
 					})
 			if step_progress >= 100.0:
 				_advance_step()
 
 		Step.WASH_SOAP:
+			if _sound_tick_timer <= 0.0:
+				sound.play_foam_sound()
+				_sound_tick_timer = 0.11
 			for item in _coat_items:
 				var sp: Vector2 = center + Vector2(item["offset"]) * r
 				if pos.distance_to(sp) <= max(68.0, r * 0.55):
 					item["foam"] = min(1.0, float(item["foam"]) + clamp(dist * 0.012, 0.04, 0.22))
 					item["value"] = max(0.0, 1.0 - float(item["foam"]))
-			if randf() < 0.55:
-				sound.play_soft_pop(1.05)
+			if randf() < 0.65:
 				_particles.append({
 					"pos": pos + Vector2(randf_range(-20, 20), randf_range(-20, 20)),
 					"vel": Vector2(randf_range(-25, 25), randf_range(-65, -20)),
@@ -452,7 +493,14 @@ func _handle_drag_action(pos: Vector2, dist: float) -> void:
 				})
 			_recalc_items_progress()
 
+		Step.TOWEL_WRAP:
+			_apply_towel_action(pos)
+
 func _apply_shower_stream(delta: float) -> void:
+	_tool_anim_timer = 0.15
+	if _sound_tick_timer <= 0.0:
+		sound.play_water_stream()
+		_sound_tick_timer = 0.08
 	var center := _get_pet_center()
 	var r: float = _get_pet_radius()
 	var water_hit := _pointer_pos + Vector2(0, 52.0)
@@ -461,7 +509,7 @@ func _apply_shower_stream(delta: float) -> void:
 		if water_hit.distance_to(sp) <= max(76.0, r * 0.62):
 			item["foam"] = max(0.0, float(item["foam"]) - delta * 1.45)
 
-	if randf() < delta * 32.0:
+	if randf() < delta * 36.0:
 		_particles.append({
 			"pos": _pointer_pos + Vector2(randf_range(-18, 18), 20),
 			"vel": Vector2(randf_range(-35, 35), randf_range(220, 320)),
@@ -474,6 +522,10 @@ func _apply_shower_stream(delta: float) -> void:
 	_recalc_items_progress()
 
 func _apply_dryer_stream(delta: float) -> void:
+	_tool_anim_timer = 0.15
+	if _sound_tick_timer <= 0.0:
+		sound.play_dryer_hum()
+		_sound_tick_timer = 0.08
 	var center := _get_pet_center()
 	var r: float = _get_pet_radius()
 	var heat_gain: float = 22.0 if bool(state.tool_upgrades.get("quiet_dryer", false)) else 46.0
@@ -493,7 +545,7 @@ func _apply_dryer_stream(delta: float) -> void:
 		if _pointer_pos.distance_to(sp) <= max(78.0, r * 0.65):
 			item["value"] = max(0.0, float(item["value"]) - delta * 1.35)
 
-	if randf() < delta * 24.0:
+	if randf() < delta * 26.0:
 		_particles.append({
 			"pos": _pointer_pos + Vector2(20, randf_range(-12, 12)),
 			"vel": Vector2(randf_range(130, 210), randf_range(-30, 30)),
@@ -518,7 +570,7 @@ func _recalc_items_progress() -> void:
 	var total: float = 0.0
 	for item in _coat_items:
 		match step:
-			Step.TRIM_COAT, Step.TOWEL_PAT, Step.BLOW_DRY:
+			Step.TRIM_COAT, Step.FINAL_TRIM, Step.TOWEL_WRAP, Step.BLOW_DRY:
 				total += (1.0 - float(item["value"]))
 			Step.WASH_SOAP:
 				total += float(item["foam"])
@@ -531,8 +583,6 @@ func _recalc_items_progress() -> void:
 		_advance_step()
 
 func _apply_final_style_finish() -> void:
-	_style_applied_acc = true
-	_style_applied_scent = true
 	var center := _get_pet_center()
 	var scent_col := Color("c7a6d9") if chosen_scent == "lavender" else (Color("f5dfa6") if chosen_scent == "vanilla" else Color("a8d9a6"))
 	for _i in range(28):
@@ -552,32 +602,45 @@ func _advance_step() -> void:
 	active_tool = Tool.NONE
 	step_progress = 0.0
 	dryer_heat = 0.0
-	sound.play_success()
 	_vibrate_tap(40)
 
 	match step:
 		Step.CALM_BRUSH:
+			sound.play_success()
 			step = Step.TRIM_COAT
 		Step.TRIM_COAT:
+			sound.play_success()
 			step = Step.CLIP_NAILS
 		Step.CLIP_NAILS:
+			sound.play_success()
 			location = Location.BATH
 			step = Step.WASH_SOAP
 			_transition_alpha = 1.0
 		Step.WASH_SOAP:
+			sound.play_success()
 			step = Step.WASH_RINSE
 		Step.WASH_RINSE:
-			location = Location.DRY_AREA
-			step = Step.TOWEL_PAT
-			_transition_alpha = 1.0
-			_shake_timer = 1.1
-		Step.TOWEL_PAT:
-			step = Step.BLOW_DRY
-		Step.BLOW_DRY:
+			sound.play_success()
+			# Полотенце используется прямо в зоне ванной!
+			step = Step.TOWEL_WRAP
+			_towel_wrap_ratio = 0.25
+		Step.TOWEL_WRAP:
+			# Забавная дрожь-отряхивание при переходе из ванной на основной стол!
+			sound.play_shiver_sound()
+			_shake_timer = 0.95
+			_towel_wrap_ratio = 0.0
 			location = Location.TABLE
-			step = Step.FINAL_STYLE
+			step = Step.BLOW_DRY
 			_transition_alpha = 1.0
+		Step.BLOW_DRY:
+			sound.play_success()
+			# После сушки феном на основном столе — финальное подравнивание ножничками
+			step = Step.FINAL_TRIM
+		Step.FINAL_TRIM:
+			sound.play_success()
+			step = Step.FINAL_STYLE
 		Step.FINAL_STYLE:
+			sound.play_success()
 			step = Step.SUMMARY
 
 	_setup_step_items()
@@ -586,11 +649,11 @@ func _advance_step() -> void:
 func _get_required_tool() -> Tool:
 	match step:
 		Step.CALM_BRUSH: return Tool.BRUSH
-		Step.TRIM_COAT: return Tool.SCISSORS
+		Step.TRIM_COAT, Step.FINAL_TRIM: return Tool.SCISSORS
 		Step.CLIP_NAILS: return Tool.CLIPPER
 		Step.WASH_SOAP: return Tool.SHAMPOO
 		Step.WASH_RINSE: return Tool.SHOWER
-		Step.TOWEL_PAT: return Tool.TOWEL
+		Step.TOWEL_WRAP: return Tool.TOWEL
 		Step.BLOW_DRY: return Tool.CABINET if active_tool == Tool.CABINET else Tool.DRYER
 	return Tool.NONE
 
@@ -634,11 +697,9 @@ func _refresh_ui() -> void:
 
 	match location:
 		Location.TABLE:
-			_loc_lbl.text = "Кабинет груминга • Заказ: %s" % str(pet.get("wish_tag", ""))
+			_loc_lbl.text = "Основной стол груминга • Заказ: %s" % str(pet.get("wish_tag", ""))
 		Location.BATH:
-			_loc_lbl.text = "Ванная комната • Купание"
-		Location.DRY_AREA:
-			_loc_lbl.text = "Зона сушки и укладки"
+			_loc_lbl.text = "Ванная зона • Купание и обёртывание в полотенце"
 
 	_heat_row.visible = (step == Step.BLOW_DRY and active_tool == Tool.DRYER)
 	_style_box.visible = (step == Step.FINAL_STYLE)
@@ -651,22 +712,24 @@ func _refresh_ui() -> void:
 
 	match step:
 		Step.CALM_BRUSH:
-			_status_lbl.text = "1/8 Знакомство: возьми «Расчёску» и погладь в зелёной зоне доверия!" if not tool_selected else "Веди расчёску плавно по зоне доверия (избегай красной зоны лап/животика)."
+			_status_lbl.text = "1/9 Вычёсывание: возьми «Расчёску» и погладь в зелёной зоне доверия!" if not tool_selected else "Веди расчёску плавно — пушок собирается рядом на столе!"
 		Step.TRIM_COAT:
-			_status_lbl.text = "2/8 Контурная стрижка: возьми «Ножницы» и состриги отросшие пучки." if not tool_selected else "Нажимай на торчащие пучки и колтуны вокруг контура."
+			_status_lbl.text = "2/9 Стрижка колтунов: возьми «Ножницы» и состриги пучки по контуру." if not tool_selected else "Нажимай на колтуны и торчащие пучки."
 		Step.CLIP_NAILS:
-			_status_lbl.text = "3/8 Маникюр лапок: выбери «Когтерез» для аккуратной стрижки когтей." if not tool_selected else "Нажми по экрану, когда бегунок окажется в ЗЕЛЁНОЙ зоне!"
+			_status_lbl.text = "3/9 Стрижка когтей: выбери «Щипчики» на панели снизу." if not tool_selected else "Нажми по экрану, когда бегунок в ЗЕЛЁНОЙ зоне!"
 		Step.WASH_SOAP:
-			_status_lbl.text = "4/8 Намыливание: возьми «Шампунь» и взбей густую пену." if not tool_selected else "Води губкой с шампунем по пятнышкам до белой пены."
+			_status_lbl.text = "4/9 Намыливание (Ванная): возьми «Шампунь» и взбей густую пену." if not tool_selected else "Води губкой с шампунем по пятнышкам до белой пены."
 		Step.WASH_RINSE:
-			_status_lbl.text = "5/8 Смыв пены: переключись на «Душ» и смой всю пену." if not tool_selected else "Зажми и води лейкой душа над пеной."
-		Step.TOWEL_PAT:
-			_status_lbl.text = "6/8 Полотенце: промокни крупные капли воды на шёрстке." if not tool_selected else "Нажимай полотенцем на капли воды."
+			_status_lbl.text = "5/9 Смыв пены (Ванная): переключись на «Душ» и смой пену водой." if not tool_selected else "Зажми и води лейкой душа над пеной."
+		Step.TOWEL_WRAP:
+			_status_lbl.text = "6/9 Полотенце (у ванной): возьми «Полотенце», чтобы укутать питомца!" if not tool_selected else "Промокни капли и укутай питомца в тёплое полотенце!"
 		Step.BLOW_DRY:
 			var cab_hint: String = " или «Шкаф»" if state.has_drying_cabinet else ""
-			_status_lbl.text = "7/8 Сушка: выбери «Фен»%s и распуши шерсть." % cab_hint if not tool_selected else ("Сушильный шкаф бережно сушит шерсть..." if active_tool == Tool.CABINET else "Води феном плавно, не перегревай!")
+			_status_lbl.text = "7/9 Сушка на столе: выбери «Фен»%s и распуши шерсть." % cab_hint if not tool_selected else ("Сушильный шкаф бережно сушит шерсть..." if active_tool == Tool.CABINET else "Води феном плавно, следи за температурой!")
+		Step.FINAL_TRIM:
+			_status_lbl.text = "8/9 Подравнивание после фена: возьми «Ножницы» и подровняй торчащие волосинки!" if not tool_selected else "Щёлкни ножницами по торчащим прядям после укладки."
 		Step.FINAL_STYLE:
-			_status_lbl.text = "8/8 Финальный образ: подбери аксессуар и аромат (%s), затем нажми на питомца!" % str(pet.get("wish_tag", ""))
+			_status_lbl.text = "9/9 Финальный образ: выбери аксессуар и аромат (%s), затем нажми на питомца!" % str(pet.get("wish_tag", ""))
 			_rebuild_style_selectors()
 		Step.SUMMARY:
 			var res := _calc_final_reward()
@@ -748,20 +811,17 @@ func _rebuild_tool_buttons() -> void:
 			available = [
 				{"tool": Tool.BRUSH, "label": "Расчёска"},
 				{"tool": Tool.SCISSORS, "label": "Ножницы"},
-				{"tool": Tool.CLIPPER, "label": "Когтерез"}
-			]
-		Location.BATH:
-			available = [
-				{"tool": Tool.SHAMPOO, "label": "Шампунь"},
-				{"tool": Tool.SHOWER, "label": "Душ"}
-			]
-		Location.DRY_AREA:
-			available = [
-				{"tool": Tool.TOWEL, "label": "Полотенце"},
+				{"tool": Tool.CLIPPER, "label": "Щипчики"},
 				{"tool": Tool.DRYER, "label": "Фен"}
 			]
 			if state.has_drying_cabinet:
 				available.append({"tool": Tool.CABINET, "label": "Шкаф"})
+		Location.BATH:
+			available = [
+				{"tool": Tool.SHAMPOO, "label": "Шампунь"},
+				{"tool": Tool.SHOWER, "label": "Душ"},
+				{"tool": Tool.TOWEL, "label": "Полотенце"}
+			]
 
 	var req: Tool = _get_required_tool()
 	for entry in available:
@@ -769,7 +829,7 @@ func _rebuild_tool_buttons() -> void:
 		var btn := Button.new()
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.custom_minimum_size = Vector2(0, 74)
-		btn.add_theme_font_size_override("font_size", 25)
+		btn.add_theme_font_size_override("font_size", 23)
 		var is_active: bool = (active_tool == t)
 		var is_needed: bool = (t == req) or (step == Step.BLOW_DRY and t == Tool.CABINET)
 		btn.text = ("✓ " + entry["label"]) if is_active else (("• " + entry["label"]) if is_needed else entry["label"])
@@ -785,7 +845,7 @@ func _update_bars() -> void:
 
 func _get_pet_center() -> Vector2:
 	var sz: Vector2 = _pad_panel.size if _pad_panel != null else Vector2(800, 900)
-	var shake_x: float = sin(_anim_time * 38.0) * 14.0 if _shake_timer > 0.0 else 0.0
+	var shake_x: float = sin(_anim_time * 42.0) * 16.0 if _shake_timer > 0.0 else 0.0
 	var wobble: float = sin(_anim_time * (7.5 if stress > 65.0 else 2.8)) * (8.0 if stress > 65.0 else 3.0)
 	return Vector2(sz.x * 0.5 + wobble + shake_x, sz.y * 0.52)
 
@@ -821,6 +881,16 @@ func _draw_pet_pad() -> void:
 	var center := _get_pet_center()
 	var r: float = _get_pet_radius()
 
+	# Горка вычесанной шерсти сбоку на основном столе
+	if location == Location.TABLE and _fur_pile_count > 0:
+		var pile_base := Vector2(sz.x - 135.0, sz.y * 0.74 - 8.0)
+		var body_col: Color = pet.get("body_color", Color("e6b67c"))
+		for k in range(_fur_pile_count):
+			var ox: float = ((k % 4) - 1.5) * 18.0
+			var oy: float = -floor(float(k) / 4.0) * 11.0
+			_pad_panel.draw_circle(pile_base + Vector2(ox, oy), 15.0, body_col.lightened(0.08))
+			_pad_panel.draw_circle(pile_base + Vector2(ox, oy), 15.0, Color("7a6858"), false, 2.0)
+
 	if step == Step.BLOW_DRY and active_tool == Tool.CABINET:
 		_pad_panel.draw_rect(Rect2(center - Vector2(r * 1.35, r * 1.35), Vector2(r * 2.7, r * 2.5)), Color(0.76, 0.89, 0.83, 0.42))
 		_pad_panel.draw_rect(Rect2(center - Vector2(r * 1.35, r * 1.35), Vector2(r * 2.7, r * 2.5)), Color("6d9982"), false, 3.5)
@@ -832,6 +902,10 @@ func _draw_pet_pad() -> void:
 	else:
 		_draw_breed_character(center, r)
 
+	# Уютное обёртывание в пушистое полотенце в зоне ванной!
+	if step == Step.TOWEL_WRAP and _towel_wrap_ratio > 0.05:
+		_draw_towel_wrap_overlay(center, r, _towel_wrap_ratio)
+
 	# Подсветка тактильных зон на этапе 1
 	if step == Step.CALM_BRUSH and active_tool == Tool.BRUSH:
 		var love_pos := _get_zone_pos(str(pet.get("love_zone", "ears")))
@@ -842,11 +916,9 @@ func _draw_pet_pad() -> void:
 		_pad_panel.draw_circle(sens_pos, r * 0.28, Color(0.85, 0.48, 0.44, 0.24))
 		_pad_panel.draw_circle(sens_pos, r * 0.28, Color("d98a7e"), false, 2.5)
 
-	# Аксессуар на финальных этапах
 	if step == Step.FINAL_STYLE or step == Step.SUMMARY:
 		_draw_chosen_accessory(center, r)
 
-	# Рамка фотоснимка «После» на экране итога
 	if step == Step.SUMMARY:
 		var frame := Rect2(center - Vector2(r * 1.35, r * 1.42), Vector2(r * 2.7, r * 2.65))
 		_pad_panel.draw_rect(frame, Color("fffdf9"), false, 10.0)
@@ -857,7 +929,7 @@ func _draw_pet_pad() -> void:
 		var sp: Vector2 = center + Vector2(item["offset"]) * r
 		var sz_item: float = float(item["size"])
 		match step:
-			Step.TRIM_COAT:
+			Step.TRIM_COAT, Step.FINAL_TRIM:
 				var val: float = float(item["value"])
 				if val > 0.05:
 					var tuft_col: Color = body_col.lightened(0.08) if bool(item.get("is_tuft", false)) else body_col.darkened(0.24)
@@ -871,12 +943,11 @@ func _draw_pet_pad() -> void:
 				if foam > 0.05:
 					_pad_panel.draw_circle(sp, sz_item * foam, Color(1.0, 1.0, 1.0, 0.92))
 					_pad_panel.draw_circle(sp + Vector2(10, -8), sz_item * 0.65 * foam, Color(0.92, 0.98, 1.0, 0.92))
-			Step.TOWEL_PAT, Step.BLOW_DRY:
+			Step.TOWEL_WRAP, Step.BLOW_DRY:
 				var drop: float = float(item["value"])
 				if drop > 0.05:
 					_pad_panel.draw_circle(sp, sz_item * 0.78 * drop, Color(0.54, 0.81, 0.95, 0.88))
 
-	# Мини-игра крупным планом для стрижки когтей (Этап 3)
 	if step == Step.CLIP_NAILS:
 		_draw_nail_clipping_overlay(sz)
 
@@ -904,13 +975,33 @@ func _draw_pet_pad() -> void:
 	if _transition_alpha > 0.01:
 		_pad_panel.draw_rect(Rect2(Vector2.ZERO, sz), Color(1.0, 0.99, 0.96, _transition_alpha * 0.85))
 
+func _draw_towel_wrap_overlay(center: Vector2, r: float, ratio: float) -> void:
+	var towel_col := Color("fffaf0")
+	var trim_col := Color("9fc4ab")
+	var wrap_w: float = r * 1.72 * clamp(ratio * 1.2, 0.4, 1.0)
+	var wrap_rect := Rect2(center + Vector2(-wrap_w * 0.5, -r * 0.05), Vector2(wrap_w, r * 0.95))
+	_pad_panel.draw_rect(wrap_rect, towel_col)
+	_pad_panel.draw_rect(wrap_rect, Color("bfa992"), false, 3.5)
+	# Запах полотенца по диагонали
+	_pad_panel.draw_line(wrap_rect.position, wrap_rect.position + Vector2(wrap_rect.size.x * 0.75, wrap_rect.size.y * 0.7), trim_col, 5.0)
+	_pad_panel.draw_line(wrap_rect.position + Vector2(wrap_rect.size.x, 0), wrap_rect.position + Vector2(wrap_rect.size.x * 0.25, wrap_rect.size.y * 0.7), trim_col, 5.0)
+	# Уголок полотенца на макушке (как капюшон после купания)
+	if ratio > 0.55:
+		var head_top := center + Vector2(0, -r * 1.15)
+		var hood := PackedVector2Array([
+			head_top + Vector2(-r * 0.58, r * 0.45),
+			head_top + Vector2(0, -r * 0.12),
+			head_top + Vector2(r * 0.58, r * 0.45)
+		])
+		_pad_panel.draw_colored_polygon(hood, towel_col)
+		_pad_panel.draw_polyline(hood, Color("bfa992"), 3.5)
+
 func _draw_nail_clipping_overlay(sz: Vector2) -> void:
 	var paw_center := _get_nail_paw_center()
 	var card := Rect2(Vector2(40, paw_center.y - 135), Vector2(sz.x - 80, 250))
 	_pad_panel.draw_rect(card, Color("fffdf9"))
 	_pad_panel.draw_rect(card, Color("c99e76"), false, 4.0)
 
-	# Подушечка лапки и 4 коготка
 	var body_col: Color = pet.get("body_color", Color("e6b67c"))
 	_pad_panel.draw_circle(paw_center + Vector2(0, 35), 92.0, body_col)
 	_pad_panel.draw_circle(paw_center + Vector2(0, 35), 92.0, Color("5c4d40"), false, 3.0)
@@ -925,7 +1016,6 @@ func _draw_nail_clipping_overlay(sz: Vector2) -> void:
 		if i == _active_nail_idx:
 			_pad_panel.draw_circle(Vector2(nx, ny - nail_len - 14), 7.0, Color("7da388"))
 
-	# Шкала тайминга с зелёной зоной
 	var bar_w: float = sz.x - 160.0
 	var bar_x: float = 80.0
 	var bar_y: float = paw_center.y + 82.0
@@ -977,8 +1067,8 @@ func _draw_breed_character(center: Vector2, r: float) -> void:
 	var acc_col: Color = pet.get("accent_color", Color("fff9f0"))
 	var eye_col: Color = pet.get("eye_color", Color("3c332b"))
 	var vtype: String = str(pet.get("visual_type", "corgi"))
-	var is_fluffy_done: bool = (step == Step.FINAL_STYLE or step == Step.SUMMARY)
-	var fluff_scale: float = 1.08 if is_fluffy_done else 1.0
+	var is_fluffy_done: bool = (step == Step.FINAL_TRIM or step == Step.FINAL_STYLE or step == Step.SUMMARY)
+	var fluff_scale: float = 1.09 if is_fluffy_done else 1.0
 
 	_pad_panel.draw_circle(center + Vector2(0, r * 0.92), r * 0.85, Color(0.45, 0.38, 0.32, 0.28))
 
@@ -1121,9 +1211,6 @@ func _draw_location_background(sz: Vector2) -> void:
 	if location == Location.BATH:
 		bg_col = Color("eaf4f7")
 		border_col = Color("a7c6d1")
-	elif location == Location.DRY_AREA:
-		bg_col = Color("f4efe8")
-		border_col = Color("c5d6cc")
 
 	var pad_bg := StyleBoxFlat.new()
 	pad_bg.bg_color = bg_col
@@ -1145,38 +1232,50 @@ func _draw_location_background(sz: Vector2) -> void:
 			_pad_panel.draw_line(Vector2(16, ty), Vector2(sz.x - 16, ty), Color("d5e7ed"), 2.0)
 		_pad_panel.draw_line(Vector2(sz.x - 70, sz.y * 0.72), Vector2(sz.x - 70, 80), Color("94a5b0"), 8.0)
 		_pad_panel.draw_line(Vector2(sz.x - 70, 80), Vector2(sz.x - 140, 80), Color("94a5b0"), 8.0)
-	elif location == Location.DRY_AREA:
-		var mat_y: float = sz.y * 0.72
-		_pad_panel.draw_rect(Rect2(24, mat_y, sz.x - 48, sz.y - mat_y - 16), Color("dce8e0"))
-		_pad_panel.draw_rect(Rect2(24, mat_y, sz.x - 48, sz.y - mat_y - 16), Color("9fb8aa"), false, 3.5)
 
 func _draw_active_tool(pos: Vector2) -> void:
+	var anim_pulse: float = sin(_anim_time * 24.0) * 6.0 if _tool_anim_timer > 0.0 else 0.0
 	match active_tool:
 		Tool.BRUSH:
-			_pad_panel.draw_rect(Rect2(pos - Vector2(28, 16), Vector2(56, 32)), Color("9fc4ab"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(28, 16), Vector2(56, 32)), Color("4a6354"), false, 3.0)
+			var bp := pos + Vector2(anim_pulse, 0)
+			_pad_panel.draw_rect(Rect2(bp - Vector2(30, 18), Vector2(60, 36)), Color("9fc4ab"))
+			_pad_panel.draw_rect(Rect2(bp - Vector2(30, 18), Vector2(60, 36)), Color("4a6354"), false, 3.0)
+			# Щетинки расчёски
+			for bx in [-20, -10, 0, 10, 20]:
+				_pad_panel.draw_line(bp + Vector2(bx, 18), bp + Vector2(bx, 28), Color("4a6354"), 3.0)
 		Tool.SCISSORS:
-			var snip: float = 6.0 if _stroking else 18.0
-			_pad_panel.draw_line(pos + Vector2(-22, -snip), pos + Vector2(22, snip), Color("5c5c5c"), 5.0)
-			_pad_panel.draw_line(pos + Vector2(-22, snip), pos + Vector2(22, -snip), Color("5c5c5c"), 5.0)
-			_pad_panel.draw_circle(pos + Vector2(-22, -snip), 9.0, Color("d98a7e"), false, 3.0)
-			_pad_panel.draw_circle(pos + Vector2(-22, snip), 9.0, Color("d98a7e"), false, 3.0)
+			var snip: float = 4.0 if _tool_anim_timer > 0.0 else 18.0
+			_pad_panel.draw_line(pos + Vector2(-24, -snip), pos + Vector2(24, snip), Color("5c5c5c"), 5.0)
+			_pad_panel.draw_line(pos + Vector2(-24, snip), pos + Vector2(24, -snip), Color("5c5c5c"), 5.0)
+			_pad_panel.draw_circle(pos + Vector2(-24, -snip), 10.0, Color("d98a7e"), false, 3.5)
+			_pad_panel.draw_circle(pos + Vector2(-24, snip), 10.0, Color("d98a7e"), false, 3.5)
 		Tool.CLIPPER:
-			_pad_panel.draw_rect(Rect2(pos - Vector2(16, 26), Vector2(32, 52)), Color("8ea6b5"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(16, 26), Vector2(32, 52)), Color("465a66"), false, 3.0)
+			var jaw: float = 3.0 if _tool_anim_timer > 0.0 else 15.0
+			# Ручки щипчиков
+			_pad_panel.draw_line(pos + Vector2(-26, 26), pos + Vector2(-6, 0), Color("e68c7a"), 7.0)
+			_pad_panel.draw_line(pos + Vector2(26, 26), pos + Vector2(6, 0), Color("e68c7a"), 7.0)
+			# Лезвия когтереза
+			_pad_panel.draw_line(pos + Vector2(-6, 0), pos + Vector2(-jaw, -24), Color("7a8691"), 6.0)
+			_pad_panel.draw_line(pos + Vector2(6, 0), pos + Vector2(jaw, -24), Color("7a8691"), 6.0)
 		Tool.SHAMPOO:
-			_pad_panel.draw_rect(Rect2(pos - Vector2(26, 18), Vector2(52, 36)), Color("f5e09b"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(26, 18), Vector2(52, 36)), Color("8c7a48"), false, 3.0)
+			var sq: float = 1.0 + sin(_anim_time * 18.0) * 0.12 if _tool_anim_timer > 0.0 else 1.0
+			_pad_panel.draw_rect(Rect2(pos - Vector2(28 * sq, 18), Vector2(56 * sq, 36)), Color("f5e09b"))
+			_pad_panel.draw_rect(Rect2(pos - Vector2(28 * sq, 18), Vector2(56 * sq, 36)), Color("8c7a48"), false, 3.0)
 		Tool.SHOWER:
-			_pad_panel.draw_circle(pos, 24.0, Color("9ab8c7"))
-			_pad_panel.draw_circle(pos, 24.0, Color("506b78"), false, 3.0)
+			_pad_panel.draw_circle(pos, 26.0, Color("9ab8c7"))
+			_pad_panel.draw_circle(pos, 26.0, Color("506b78"), false, 3.5)
+			for sx in [-12, 0, 12]:
+				_pad_panel.draw_circle(pos + Vector2(sx, 8), 3.0, Color("eef8fb"))
 		Tool.TOWEL:
-			_pad_panel.draw_rect(Rect2(pos - Vector2(28, 18), Vector2(56, 36)), Color("fffaf2"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(28, 18), Vector2(56, 36)), Color("bfa992"), false, 3.0)
+			var tp := pos + Vector2(0, anim_pulse)
+			_pad_panel.draw_rect(Rect2(tp - Vector2(34, 22), Vector2(68, 44)), Color("fffaf2"))
+			_pad_panel.draw_rect(Rect2(tp - Vector2(34, 22), Vector2(68, 44)), Color("bfa992"), false, 3.5)
+			_pad_panel.draw_line(tp + Vector2(-28, 12), tp + Vector2(28, 12), Color("9fc4ab"), 4.0)
 		Tool.DRYER:
-			_pad_panel.draw_circle(pos, 22.0, Color("8ea6b5"))
-			_pad_panel.draw_line(pos + Vector2(16, 0), pos + Vector2(44, -12), Color("f2cf8d"), 4.5)
-			_pad_panel.draw_line(pos + Vector2(16, 6), pos + Vector2(44, 16), Color("f2cf8d"), 4.5)
+			var dp := pos + Vector2(0, anim_pulse * 0.5)
+			_pad_panel.draw_circle(dp, 24.0, Color("8ea6b5"))
+			_pad_panel.draw_line(dp + Vector2(18, 0), dp + Vector2(48, -14), Color("f2cf8d"), 5.0)
+			_pad_panel.draw_line(dp + Vector2(18, 6), dp + Vector2(48, 18), Color("f2cf8d"), 5.0)
 
 func _build_ui() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1248,7 +1347,7 @@ func _build_ui() -> void:
 	vbox.add_child(_pad_panel)
 
 	_tools_box = HBoxContainer.new()
-	_tools_box.add_theme_constant_override("separation", 12)
+	_tools_box.add_theme_constant_override("separation", 10)
 	vbox.add_child(_tools_box)
 
 	_style_box = VBoxContainer.new()
