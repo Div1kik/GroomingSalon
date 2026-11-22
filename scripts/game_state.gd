@@ -29,6 +29,7 @@ var tool_upgrades: Dictionary = {
 
 var pet_memory: Dictionary = {}
 var known_clients: Array[Dictionary] = []
+var gallery_photos: Array[Dictionary] = []
 var hired_staff: Array[Dictionary] = []
 
 var candidate_pool: Array[Dictionary] = [
@@ -134,15 +135,15 @@ const TEMPERAMENTS: Array[Dictionary] = [
 	{
 		"fear_water": false, "fear_dryer": true,
 		"habit": "Обожает почесушки за ушками, но не любит, когда трогают лапки.",
-		"problem": "ужасно боится шума фена, а когти уже пора подравнять",
-		"wish": "Бережная сушка + стрижка когтей",
+		"problem": "сильно оброс после прогулок, в шерсти колтуны и пыль",
+		"wish": "Вычёсывание + стрижка когтей",
 		"love_zone": "ears",
 		"sensitive_zone": "paws"
 	},
 	{
 		"fear_water": true, "fear_dryer": false,
 		"habit": "Тает от поглаживаний под подбородком, но стесняется трогать животик.",
-		"problem": "испачкался на прогулке и зарос по бокам",
+		"problem": "испачкал лапки и животик в парке, шубка вся всклокочена",
 		"wish": "Мягкое купание + контурная стрижка",
 		"love_zone": "chin",
 		"sensitive_zone": "belly"
@@ -150,7 +151,7 @@ const TEMPERAMENTS: Array[Dictionary] = [
 	{
 		"fear_water": true, "fear_dryer": true,
 		"habit": "Любит лёгкое поглаживание спинки, пугается резких движений у лап.",
-		"problem": "очень стеснительный хвостик, просит деликатный спа-уход",
+		"problem": "очень зарос и растрепался, просит деликатный спа-уход",
 		"wish": "Деликатный спа-комплекс без спешки",
 		"love_zone": "back",
 		"sensitive_zone": "paws"
@@ -158,7 +159,7 @@ const TEMPERAMENTS: Array[Dictionary] = [
 	{
 		"fear_water": false, "fear_dryer": false,
 		"habit": "Обожает чесаться за ушками и позировать в красивых аксессуарах.",
-		"problem": "готовится к фотосессии и просит стильный образ",
+		"problem": "готов к полному преображению перед семейной фотосессией",
 		"wish": "Полный комплекс + праздничный образ",
 		"love_zone": "ears",
 		"sensitive_zone": "belly"
@@ -228,6 +229,7 @@ func spawn_pet_client() -> Dictionary:
 			returning["trust"] = mem_ret.get("trust", 0.0)
 			returning["visits"] = mem_ret.get("visits", 0)
 			returning["base_price"] = get_service_price()
+			returning["messiness"] = randf_range(0.65, 0.95)
 			returning["owner_replica"] = "«Снова здравствуйте! %s так понравилось в прошлый раз, что мы пришли освежить образ (%s + аромат «%s»)!»" % [
 				returning["name"], returning.get("pref_acc_label", "бантик"), returning.get("pref_scent_label", "лаванда")
 			]
@@ -272,6 +274,7 @@ func spawn_pet_client() -> Dictionary:
 		"size_scale": breed_info.get("size_scale", 1.0),
 		"uses_carrier": breed_info.get("uses_carrier", false),
 		"sprite_path": breed_info["sprite_path"],
+		"messiness": randf_range(0.75, 1.0),
 		"name": pet_name,
 		"owner_name": owner_name,
 		"owner_shirt": owner_shirt,
@@ -300,6 +303,33 @@ func spawn_pet_client() -> Dictionary:
 		"visits": mem.get("visits", 0),
 		"base_price": get_service_price()
 	}
+
+func add_gallery_photo(pet_data: Dictionary, chosen_acc: String, chosen_scent: String, calm_ratio: float, reward: int) -> void:
+	var review := "«Невероятное преображение! Шубка сияет и пахнет просто волшебно!»"
+	if calm_ratio < 0.5:
+		review = "«Выглядит очень опрятно, но хвостик немного перенервничал.»"
+	elif calm_ratio >= 0.85:
+		review = "«Полный восторг! %s даже не хотел уходить со стола — обязательно вернёмся!»" % str(pet_data.get("name", ""))
+
+	var entry := {
+		"name": pet_data.get("name", ""),
+		"breed": pet_data.get("breed", ""),
+		"species": pet_data.get("species", ""),
+		"visual_type": pet_data.get("visual_type", "corgi"),
+		"body_color": pet_data.get("body_color", Color("e6a968")),
+		"accent_color": pet_data.get("accent_color", Color("fff9f0")),
+		"bow_color": pet_data.get("bow_color", Color("e68c7a")),
+		"chosen_acc": chosen_acc,
+		"chosen_scent": chosen_scent,
+		"calm_pct": int(round(calm_ratio * 100.0)),
+		"reward": reward,
+		"day": day_num,
+		"review": review
+	}
+	gallery_photos.push_front(entry)
+	if gallery_photos.size() > 30:
+		gallery_photos.pop_back()
+	emit_signal("state_changed")
 
 func buy_tool_upgrade(key: String, cost: int) -> bool:
 	if bool(tool_upgrades.get(key, false)) or money < cost:
