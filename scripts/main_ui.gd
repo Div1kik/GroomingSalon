@@ -24,7 +24,7 @@ var _selected_pet: Dictionary = {}
 
 var _nav_buttons: Dictionary = {}
 
-func setup(p_state: GameState, p_sound: SoundManager, p_world: SalonWorld) -> void:
+func setup(p_state: GameState, p_sound: SoundManager, p_world: SalonWorld, _p_minigame: Node = null) -> void:
 	state = p_state
 	sound = p_sound
 	world = p_world
