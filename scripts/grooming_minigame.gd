@@ -24,11 +24,10 @@ var dryer_heat: float = 0.0
 var chosen_accessory: String = "bow"
 var chosen_scent: String = "lavender"
 
-# Индексы визуального преображения (0.0 .. 1.0)
-var _scruffy_ratio: float = 1.0   # 1.0 = сильно лохматый/всклокоченный, 0.0 = гладко расчёсан
-var _dirt_ratio: float = 1.0      # 1.0 = пыльная тусклая шерсть, 0.0 = чистая сияющая
-var _wet_ratio: float = 0.0       # 1.0 = мокрая прилизанная шерсть после ванной
-var _fluff_shine: float = 0.0     # 1.0 = пышная уложенная шерсть после фена
+var _scruffy_ratio: float = 1.0
+var _dirt_ratio: float = 1.0
+var _wet_ratio: float = 0.0
+var _fluff_shine: float = 0.0
 
 var _tool_anim_timer: float = 0.0
 var _towel_wrap_ratio: float = 0.0
@@ -66,10 +65,9 @@ var _coat_items: Array[Dictionary] = []
 var _scruffy_tufts: Array[Dictionary] = []
 var _tex_cache: Dictionary = {}
 
-# Процедурные растровые текстуры для мягкого объёма вместо примитивных кругов
-var _soft_fur_tex: ImageTexture
-var _soft_shadow_tex: ImageTexture
-var _sparkle_tex: ImageTexture
+var _soft_fur_tex: Texture2D
+var _soft_shadow_tex: Texture2D
+var _sparkle_tex: Texture2D
 
 var _title_lbl: Label
 var _loc_lbl: Label
@@ -93,46 +91,41 @@ func setup(p_state: GameState, p_sound: SoundManager) -> void:
 	visible = false
 
 func _create_procedural_textures() -> void:
-	# 1. Мягкая плюшевая текстура меха с радиальным градиентом и микроворсом
-	var sz := 128
-	var img_fur := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
-	var half := float(sz) * 0.5
-	for y in range(sz):
-		for x in range(sz):
-			var dx: float = (float(x) - half) / half
-			var dy: float = (float(y) - half) / half
-			var d: float = sqrt(dx * dx + dy * dy)
-			if d >= 1.0:
-				img_fur.set_pixel(x, y, Color(1, 1, 1, 0))
-			else:
-				var grain: float = 0.92 + sin(float(x) * 0.55 + float(y) * 0.25) * 0.08
-				var alpha: float = pow(1.0 - d, 1.35) * grain
-				var shade: float = clamp(1.06 - dy * 0.14 - d * 0.12, 0.78, 1.12)
-				img_fur.set_pixel(x, y, Color(shade, shade, shade, alpha))
-	_soft_fur_tex = ImageTexture.create_from_image(img_fur)
+	var g_fur := Gradient.new()
+	g_fur.offsets = PackedFloat32Array([0.0, 0.72, 1.0])
+	g_fur.colors = PackedColorArray([Color(1.06, 1.06, 1.06, 1.0), Color(0.95, 0.95, 0.95, 0.92), Color(0.88, 0.88, 0.88, 0.0)])
+	var tex_fur := GradientTexture2D.new()
+	tex_fur.gradient = g_fur
+	tex_fur.fill = GradientTexture2D.FILL_RADIAL
+	tex_fur.fill_from = Vector2(0.45, 0.42)
+	tex_fur.fill_to = Vector2(0.95, 0.95)
+	tex_fur.width = 64
+	tex_fur.height = 64
+	_soft_fur_tex = tex_fur
 
-	# 2. Мягкая контактная тень
-	var img_sh := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
-	for y in range(sz):
-		for x in range(sz):
-			var dx: float = (float(x) - half) / half
-			var dy: float = (float(y) - half) / half
-			var d: float = sqrt(dx * dx + dy * dy)
-			var a: float = pow(max(0.0, 1.0 - d), 2.1)
-			img_sh.set_pixel(x, y, Color(0.28, 0.22, 0.16, a))
-	_soft_shadow_tex = ImageTexture.create_from_image(img_sh)
+	var g_sh := Gradient.new()
+	g_sh.offsets = PackedFloat32Array([0.0, 1.0])
+	g_sh.colors = PackedColorArray([Color(0.28, 0.22, 0.16, 0.35), Color(0.28, 0.22, 0.16, 0.0)])
+	var tex_sh := GradientTexture2D.new()
+	tex_sh.gradient = g_sh
+	tex_sh.fill = GradientTexture2D.FILL_RADIAL
+	tex_sh.fill_from = Vector2(0.5, 0.5)
+	tex_sh.fill_to = Vector2(1.0, 0.5)
+	tex_sh.width = 64
+	tex_sh.height = 64
+	_soft_shadow_tex = tex_sh
 
-	# 3. Мягкий блик чистоты
-	var img_sp := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	for y in range(64):
-		for x in range(64):
-			var dx: float = abs(float(x) - 32.0) / 32.0
-			var dy: float = abs(float(y) - 32.0) / 32.0
-			var star: float = max(0.0, 1.0 - (dx + dy))
-			var glow: float = max(0.0, 1.0 - sqrt(dx * dx + dy * dy))
-			var a: float = pow(star, 2.2) * 0.85 + pow(glow, 2.5) * 0.35
-			img_sp.set_pixel(x, y, Color(1.0, 0.99, 0.94, clamp(a, 0.0, 1.0)))
-	_sparkle_tex = ImageTexture.create_from_image(img_sp)
+	var g_sp := Gradient.new()
+	g_sp.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g_sp.colors = PackedColorArray([Color(1.0, 0.99, 0.94, 0.95), Color(1.0, 0.99, 0.94, 0.35), Color(1.0, 0.99, 0.94, 0.0)])
+	var tex_sp := GradientTexture2D.new()
+	tex_sp.gradient = g_sp
+	tex_sp.fill = GradientTexture2D.FILL_RADIAL
+	tex_sp.fill_from = Vector2(0.5, 0.5)
+	tex_sp.fill_to = Vector2(1.0, 0.5)
+	tex_sp.width = 32
+	tex_sp.height = 32
+	_sparkle_tex = tex_sp
 
 func start_new_pet(preset_pet: Dictionary = {}) -> void:
 	if preset_pet.is_empty():
@@ -196,7 +189,6 @@ func _get_body_radii_norm() -> Vector2:
 	return Vector2(0.72, 0.66)
 
 func _generate_scruffy_silhouette() -> void:
-	# Всклокоченные вихры по периметру корпуса и головы (исчезают по мере расчёсывания)
 	_scruffy_tufts.clear()
 	var br := _get_body_radii_norm()
 	for i in range(18):
@@ -1196,7 +1188,6 @@ func _get_optional_texture(path: String) -> Texture2D:
 	return null
 
 func _draw_soft_blob(pos: Vector2, rx: float, ry: float, col: Color, with_outline: bool = false) -> void:
-	# Рисует мягкий текстурированный плюшевый объём через ImageTexture вместо резкого полигона
 	if _soft_fur_tex != null:
 		var rect := Rect2(pos - Vector2(rx * 1.15, ry * 1.15), Vector2(rx * 2.3, ry * 2.3))
 		_pad_panel.draw_texture_rect(_soft_fur_tex, rect, false, col)
@@ -1242,7 +1233,6 @@ func _draw_pet_pad() -> void:
 	else:
 		_draw_breed_character(center, r)
 
-	# Искорки чистоты и шёлкового блеска после сушки феном!
 	if _fluff_shine > 0.25 and _sparkle_tex != null:
 		var sp_offsets := [
 			Vector2(-r * 0.78, -r * 0.45),
@@ -1429,489 +1419,4 @@ func _draw_nail_clipping_overlay(sz: Vector2) -> void:
 		var ny: float = paw_center.y - 36.0
 		var nail_len: float = 18.0 if _nails_done[i] else 42.0
 		var col: Color = Color("9fc4ab") if _nails_done[i] else (Color("fff8f0") if i == _active_nail_idx else Color("ebe3d8"))
-		_pad_panel.draw_rect(Rect2(nx - 10, ny - nail_len, 20, nail_len), col)
-		_pad_panel.draw_rect(Rect2(nx - 6, ny - 15, 12, 15), Color("e6938a"))
-		_pad_panel.draw_rect(Rect2(nx - 10, ny - nail_len, 20, nail_len), Color("5c4d40"), false, 2.5)
-		if i == _active_nail_idx:
-			_pad_panel.draw_circle(Vector2(nx, ny - nail_len - 14), 7.0, Color("7da388"))
-
-	var bar_w: float = sz.x - 160.0
-	var bar_x: float = 80.0
-	var bar_y: float = paw_center.y + 82.0
-	_pad_panel.draw_rect(Rect2(bar_x, bar_y, bar_w, 26), Color("eadfd2"))
-	_pad_panel.draw_rect(Rect2(bar_x + bar_w * 0.34, bar_y, bar_w * 0.32, 26), Color("7da388"))
-	_pad_panel.draw_rect(Rect2(bar_x, bar_y, bar_w, 26), Color("5c4d40"), false, 3.0)
-	var cur_x: float = bar_x + bar_w * _nail_cursor
-	_pad_panel.draw_rect(Rect2(cur_x - 6, bar_y - 6, 12, 38), Color("3c332b"))
-
-func _draw_chosen_accessory(center: Vector2, r: float) -> void:
-	var head_pos := center + Vector2(0, -r * 0.42)
-	var bow_col: Color = pet.get("bow_color", Color("e68c7a"))
-	var top_pos := head_pos + Vector2(0, -r * 0.68)
-
-	match chosen_accessory:
-		"bow":
-			var bow_l := PackedVector2Array([top_pos, top_pos + Vector2(-34, -20), top_pos + Vector2(-34, 20)])
-			var bow_r := PackedVector2Array([top_pos, top_pos + Vector2(34, -20), top_pos + Vector2(34, 20)])
-			_pad_panel.draw_colored_polygon(bow_l, bow_col)
-			_pad_panel.draw_colored_polygon(bow_r, bow_col)
-			_draw_soft_blob(top_pos, 11.0, 11.0, Color("fff4e8"), false)
-		"crown":
-			var crown := PackedVector2Array([
-				top_pos + Vector2(-30, 14), top_pos + Vector2(-34, -18),
-				top_pos + Vector2(-12, -2), top_pos + Vector2(0, -24),
-				top_pos + Vector2(12, -2), top_pos + Vector2(34, -18),
-				top_pos + Vector2(30, 14)
-			])
-			_pad_panel.draw_colored_polygon(crown, Color("f0c665"))
-			_pad_panel.draw_polyline(crown, Color("7a6128"), 3.0)
-		"bandana":
-			var neck := center + Vector2(0, r * 0.08)
-			var band := PackedVector2Array([
-				neck + Vector2(-r * 0.48, -10),
-				neck + Vector2(r * 0.48, -10),
-				neck + Vector2(0, r * 0.44)
-			])
-			_pad_panel.draw_colored_polygon(band, bow_col)
-			_pad_panel.draw_polyline(band, Color("4a3f35"), 3.0)
-		"flower":
-			var fpos := head_pos + Vector2(r * 0.42, -r * 0.48)
-			for ang in range(0, 360, 72):
-				var rad := deg_to_rad(float(ang))
-				_draw_soft_blob(fpos + Vector2(cos(rad), sin(rad)) * 16.0, 12.0, 12.0, bow_col, false)
-			_draw_soft_blob(fpos, 10.0, 10.0, Color("f7d97e"), false)
-
-func _draw_ellipse_shape(pos: Vector2, rx: float, ry: float, col: Color, outline: bool = true) -> void:
-	var pts := PackedVector2Array()
-	for i in range(32):
-		var a := (float(i) / 32.0) * TAU
-		pts.append(pos + Vector2(cos(a) * rx, sin(a) * ry))
-	_pad_panel.draw_colored_polygon(pts, col)
-	if outline:
-		pts.append(pts[0])
-		_pad_panel.draw_polyline(pts, Color("5c4d40"), 3.5)
-
-func _draw_breed_character(center: Vector2, r: float) -> void:
-	var raw_body: Color = pet.get("body_color", Color("e6b67c"))
-	var raw_acc: Color = pet.get("accent_color", Color("fff9f0"))
-	var eye_col: Color = pet.get("eye_color", Color("3c332b"))
-	var vtype: String = str(pet.get("visual_type", "corgi"))
-
-	# Цвет шерсти меняется от пыльно-тусклого («До») к яркому, чистому и сияющему («После»)
-	var dusty_tint := Color("9c9286")
-	var body_col: Color = raw_body.lerp(dusty_tint, _dirt_ratio * 0.36).darkened(_wet_ratio * 0.16).lightened(_fluff_shine * 0.06)
-	var acc_col: Color = raw_acc.lerp(dusty_tint, _dirt_ratio * 0.34).darkened(_wet_ratio * 0.14).lightened(_fluff_shine * 0.05)
-
-	# Объём шерсти: мокрый питомец прилизан (0.88), а после фена распушается в шёлковое облако (1.14)
-	var coat_volume: float = (1.0 - _wet_ratio * 0.12) * (1.0 + _fluff_shine * 0.13)
-	var breath: float = sin(_anim_time * 3.1) * 0.03
-
-	var br := _get_body_radii_norm()
-	var body_rx: float = r * (br.x + breath) * coat_volume
-	var body_ry: float = r * br.y * coat_volume
-
-	# Мягкая контактная тень на столе
-	if _soft_shadow_tex != null:
-		_pad_panel.draw_texture_rect(_soft_shadow_tex, Rect2(center + Vector2(-body_rx * 1.2, body_ry + r * 0.08), Vector2(body_rx * 2.4, r * 0.34)), false)
-
-	var tail_speed: float = 8.0 if calmness > 70.0 else 3.8
-	var tail_swing: float = sin(_anim_time * tail_speed) * (20.0 if calmness > 70.0 else 10.0)
-	match vtype:
-		"bobtail":
-			_draw_soft_blob(center + Vector2(body_rx * 0.96, r * 0.15 + tail_swing * 0.3), r * 0.24 * coat_volume, r * 0.24 * coat_volume, acc_col, true)
-		"mainecoon", "persian":
-			_draw_soft_blob(center + Vector2(body_rx * 1.05, r * 0.05 + tail_swing), r * 0.44 * coat_volume, r * 0.26 * coat_volume, body_col, true)
-			_draw_soft_blob(center + Vector2(body_rx * 1.25, -r * 0.05 + tail_swing), r * 0.24 * coat_volume, r * 0.24 * coat_volume, acc_col, false)
-		"samoyed", "spitz":
-			_draw_soft_blob(center + Vector2(body_rx * 0.86, -r * 0.22 + tail_swing * 0.5), r * 0.34 * coat_volume, r * 0.34 * coat_volume, acc_col, true)
-		"corgi":
-			_draw_soft_blob(center + Vector2(body_rx * 0.92, r * 0.12), r * 0.22, r * 0.28, acc_col, true)
-		"poodle":
-			_pad_panel.draw_line(center + Vector2(body_rx * 0.82, r * 0.12), center + Vector2(body_rx * 1.25, -r * 0.18 + tail_swing), body_col, 11.0)
-			_draw_soft_blob(center + Vector2(body_rx * 1.28, -r * 0.20 + tail_swing), r * 0.22 * coat_volume, r * 0.22 * coat_volume, acc_col, true)
-		"dachshund":
-			_pad_panel.draw_line(center + Vector2(body_rx * 0.92, r * 0.12), center + Vector2(body_rx * 1.32, -r * 0.24 + tail_swing), body_col, 11.0)
-		_:
-			_pad_panel.draw_line(center + Vector2(body_rx * 0.85, r * 0.2), center + Vector2(body_rx * 1.28, -r * 0.08 + tail_swing), body_col, 22.0)
-
-	# Если питомец ещё не вычесан (_scruffy_ratio > 0), вокруг контура торчат взъерошенные вихры шерсти!
-	if _scruffy_ratio > 0.05:
-		for tuft in _scruffy_tufts:
-			var base_dir: Vector2 = Vector2(tuft["dir"]) * r * coat_volume
-			var tip_dir: Vector2 = base_dir * (1.0 + float(tuft["len"]) * _scruffy_ratio)
-			var t_col: Color = body_col.darkened(0.08)
-			_pad_panel.draw_line(center + Vector2(0, r * 0.28) + base_dir * 0.86, center + Vector2(0, r * 0.28) + tip_dir, t_col, 7.0 * _scruffy_ratio)
-
-	# Мягкий плюшевый корпус из текстуры меха
-	_draw_soft_blob(center + Vector2(0, r * 0.28), body_rx, body_ry, body_col, true)
-
-	# Пушистая грудка / воротник
-	if vtype == "mainecoon" or vtype == "samoyed" or vtype == "spitz":
-		for gx in [-0.36, -0.18, 0.0, 0.18, 0.36]:
-			_draw_soft_blob(center + Vector2(r * gx, r * 0.16), r * 0.24 * coat_volume, r * 0.22 * coat_volume, acc_col, false)
-	elif vtype == "poodle":
-		for gx in [-0.24, 0.0, 0.24]:
-			_draw_soft_blob(center + Vector2(r * gx, r * 0.22), r * 0.24 * coat_volume, r * 0.24 * coat_volume, acc_col, false)
-	else:
-		_draw_soft_blob(center + Vector2(0, r * 0.34), body_rx * 0.56, body_ry * 0.62, acc_col, false)
-
-	# Уличная пыль на животике и лапках в состоянии «До»
-	if _dirt_ratio > 0.15:
-		var mud_col := Color(0.54, 0.45, 0.36, 0.36 * _dirt_ratio)
-		_draw_soft_blob(center + Vector2(-body_rx * 0.45, body_ry * 0.55), r * 0.22, r * 0.14, mud_col, false)
-		_draw_soft_blob(center + Vector2(body_rx * 0.42, body_ry * 0.52), r * 0.20, r * 0.13, mud_col, false)
-
-	if location != Location.BATH:
-		var brace_dx: float = abs(_resist_offset.x) * 0.45
-		var leg_y: float = center.y + body_ry + r * 0.14
-		var leg_spread: float = body_rx * 0.56 + brace_dx
-		if vtype == "dachshund" or vtype == "corgi":
-			_draw_soft_blob(Vector2(center.x - leg_spread, leg_y), r * 0.22, r * 0.13, acc_col, true)
-			_draw_soft_blob(Vector2(center.x + leg_spread, leg_y), r * 0.22, r * 0.13, acc_col, true)
-		elif vtype == "poodle":
-			_pad_panel.draw_line(Vector2(center.x - leg_spread, leg_y - 26), Vector2(center.x - leg_spread, leg_y + 10), body_col, 14.0)
-			_pad_panel.draw_line(Vector2(center.x + leg_spread, leg_y - 26), Vector2(center.x + leg_spread, leg_y + 10), body_col, 14.0)
-			_draw_soft_blob(Vector2(center.x - leg_spread, leg_y + 4), r * 0.17 * coat_volume, r * 0.17 * coat_volume, acc_col, true)
-			_draw_soft_blob(Vector2(center.x + leg_spread, leg_y + 4), r * 0.17 * coat_volume, r * 0.17 * coat_volume, acc_col, true)
-		else:
-			_draw_soft_blob(Vector2(center.x - leg_spread, leg_y), r * 0.18, r * 0.20, acc_col, true)
-			_draw_soft_blob(Vector2(center.x + leg_spread, leg_y), r * 0.18, r * 0.20, acc_col, true)
-
-	var head_tilt: float = sin(_anim_time * 2.2) * 5.0 + _head_look.x * 10.0
-	var sniff_forward: float = sin(_anim_time * 28.0) * 5.0 if _sniff_timer > 0.0 else 0.0
-	var head_offset_x: float = -body_rx * 0.34 if vtype == "dachshund" else 0.0
-	var head_pos := center + Vector2(head_tilt + head_offset_x + sniff_forward, -body_ry * 0.68 + _head_look.y * 8.0)
-	var head_rx: float = r * 0.66
-	var head_ry: float = r * 0.60
-	match vtype:
-		"persian", "british", "lop_cat":
-			head_rx = r * 0.74
-			head_ry = r * 0.62
-		"mainecoon":
-			head_rx = r * 0.68
-			head_ry = r * 0.68
-		"dachshund":
-			head_rx = r * 0.56
-			head_ry = r * 0.50
-		"corgi":
-			head_rx = r * 0.66
-			head_ry = r * 0.58
-		"poodle":
-			head_rx = r * 0.54
-			head_ry = r * 0.54
-
-	# Взъерошенный чубчик на макушке в состоянии «До»
-	if _scruffy_ratio > 0.1:
-		_pad_panel.draw_line(head_pos + Vector2(-8, -head_ry * 0.85), head_pos + Vector2(-18, -head_ry * (1.0 + 0.24 * _scruffy_ratio)), body_col, 6.0 * _scruffy_ratio)
-		_pad_panel.draw_line(head_pos + Vector2(4, -head_ry * 0.88), head_pos + Vector2(14, -head_ry * (1.0 + 0.28 * _scruffy_ratio)), body_col, 6.0 * _scruffy_ratio)
-
-	_draw_soft_blob(head_pos, head_rx, head_ry, body_col, true)
-
-	var ear_droop: float = (r * 0.14 if stress > 65.0 else 0.0) + sin(_anim_time * 32.0) * 6.0 * _ear_twitch
-	match vtype:
-		"mainecoon":
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(-head_rx * 0.82, -head_ry * 0.35),
-				head_pos + Vector2(-head_rx * 0.52, -head_ry * 1.48 + ear_droop),
-				head_pos + Vector2(-head_rx * 0.15, -head_ry * 0.72)
-			]), body_col)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(head_rx * 0.82, -head_ry * 0.35),
-				head_pos + Vector2(head_rx * 0.52, -head_ry * 1.48 + ear_droop),
-				head_pos + Vector2(head_rx * 0.15, -head_ry * 0.72)
-			]), body_col)
-			_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.52, -head_ry * 1.48 + ear_droop), head_pos + Vector2(-head_rx * 0.62, -head_ry * 1.78 + ear_droop), acc_col, 5.0)
-			_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.52, -head_ry * 1.48 + ear_droop), head_pos + Vector2(head_rx * 0.62, -head_ry * 1.78 + ear_droop), acc_col, 5.0)
-			_draw_soft_blob(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.44, head_ry * 0.30, acc_col, false)
-		"persian":
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.68, head_ry * 0.20), r * 0.26, r * 0.24, body_col, false)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.68, head_ry * 0.20), r * 0.26, r * 0.24, body_col, false)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(-head_rx * 0.82, -head_ry * 0.38),
-				head_pos + Vector2(-head_rx * 0.62, -head_ry * 1.05 + ear_droop),
-				head_pos + Vector2(-head_rx * 0.28, -head_ry * 0.68)
-			]), acc_col)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(head_rx * 0.82, -head_ry * 0.38),
-				head_pos + Vector2(head_rx * 0.62, -head_ry * 1.05 + ear_droop),
-				head_pos + Vector2(head_rx * 0.28, -head_ry * 0.68)
-			]), acc_col)
-		"british", "bobtail":
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(-head_rx * 0.72, -head_ry * 0.45),
-				head_pos + Vector2(-head_rx * 0.42, -head_ry * 1.32 + ear_droop),
-				head_pos + Vector2(-head_rx * 0.08, -head_ry * 0.75)
-			]), body_col)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(head_rx * 0.72, -head_ry * 0.45),
-				head_pos + Vector2(head_rx * 0.42, -head_ry * 1.32 + ear_droop),
-				head_pos + Vector2(head_rx * 0.08, -head_ry * 0.75)
-			]), body_col)
-		"lop_cat":
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col, true)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.76, -head_ry * 0.42 + ear_droop * 0.5), r * 0.26, r * 0.16, acc_col, true)
-		"corgi":
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col, true)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.58, -head_ry * 1.05 + ear_droop), r * 0.24, r * 0.44, body_col, true)
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.58, -head_ry * 1.02 + ear_droop), r * 0.13, r * 0.28, acc_col, false)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.58, -head_ry * 1.02 + ear_droop), r * 0.13, r * 0.28, acc_col, false)
-			_pad_panel.draw_rect(Rect2(head_pos + Vector2(-r * 0.11, -head_ry * 0.65), Vector2(r * 0.22, head_ry * 0.85)), acc_col)
-			_draw_soft_blob(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.54, head_ry * 0.36, acc_col, false)
-		"samoyed", "spitz":
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.74, head_ry * 0.08), r * 0.26 * coat_volume, r * 0.24 * coat_volume, acc_col, false)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.74, head_ry * 0.08), r * 0.26 * coat_volume, r * 0.24 * coat_volume, acc_col, false)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(-head_rx * 0.68, -head_ry * 0.42),
-				head_pos + Vector2(-head_rx * 0.44, -head_ry * 1.38 + ear_droop),
-				head_pos + Vector2(-head_rx * 0.10, -head_ry * 0.72)
-			]), body_col)
-			_pad_panel.draw_colored_polygon(PackedVector2Array([
-				head_pos + Vector2(head_rx * 0.68, -head_ry * 0.42),
-				head_pos + Vector2(head_rx * 0.44, -head_ry * 1.38 + ear_droop),
-				head_pos + Vector2(head_rx * 0.10, -head_ry * 0.72)
-			]), body_col)
-			_draw_soft_blob(head_pos + Vector2(0, head_ry * 0.32), head_rx * 0.44, head_ry * 0.34, acc_col, false)
-		"poodle":
-			for cx in [-0.26, 0.0, 0.26]:
-				_draw_soft_blob(head_pos + Vector2(r * cx, -head_ry * 0.86), r * 0.24 * coat_volume, r * 0.24 * coat_volume, body_col, false)
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * coat_volume, r * 0.44 * coat_volume, acc_col, true)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.92, head_ry * 0.12 + ear_droop), r * 0.22 * coat_volume, r * 0.44 * coat_volume, acc_col, true)
-		"dachshund", "beagle":
-			_draw_soft_blob(head_pos + Vector2(-head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col, true)
-			_draw_soft_blob(head_pos + Vector2(head_rx * 0.88, head_ry * 0.24 + ear_droop), r * 0.20, r * 0.46, acc_col, true)
-			_draw_soft_blob(head_pos + Vector2(0, head_ry * 0.34), head_rx * 0.52, head_ry * 0.40, acc_col, true)
-
-	var pupil_shift := _head_look * (r * 0.035)
-	if _is_blinking or (calmness >= 70.0 and stress < 45.0):
-		_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.46, -head_ry * 0.08), head_pos + Vector2(-head_rx * 0.20, -head_ry * 0.18), Color("3c332b"), 3.5)
-		_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.20, -head_ry * 0.18), head_pos + Vector2(head_rx * 0.46, -head_ry * 0.08), Color("3c332b"), 3.5)
-	else:
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08), r * 0.105, eye_col)
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08), r * 0.105, eye_col)
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.34, -head_ry * 0.08) + pupil_shift, r * 0.058, Color("261f1a"))
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.34, -head_ry * 0.08) + pupil_shift, r * 0.058, Color("261f1a"))
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.30, -head_ry * 0.12) + pupil_shift, r * 0.034, Color("ffffff"))
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.38, -head_ry * 0.12) + pupil_shift, r * 0.034, Color("ffffff"))
-
-	if calmness > 60.0 or dryer_heat > 35.0:
-		_pad_panel.draw_circle(head_pos + Vector2(-head_rx * 0.52, head_ry * 0.16), r * 0.085, Color(0.92, 0.56, 0.52, 0.45))
-		_pad_panel.draw_circle(head_pos + Vector2(head_rx * 0.52, head_ry * 0.16), r * 0.085, Color(0.92, 0.56, 0.52, 0.45))
-
-	var is_dog: bool = str(pet.get("species", "")) == "Пёсик"
-	var nose_col := Color("3c332b") if is_dog else Color("d98a7e")
-	var nose_wiggle := Vector2(sin(_anim_time * 34.0) * 3.0 if _sniff_timer > 0.0 else 0.0, 0.0)
-	_pad_panel.draw_circle(head_pos + Vector2(0, head_ry * 0.22) + nose_wiggle, r * 0.08, nose_col)
-	_pad_panel.draw_circle(head_pos + Vector2(-r * 0.025, head_ry * 0.19) + nose_wiggle, r * 0.025, Color("ffffff"))
-	_pad_panel.draw_line(head_pos + Vector2(-r * 0.13, head_ry * 0.42), head_pos + Vector2(0, head_ry * 0.34), Color("3c332b"), 3.0)
-	_pad_panel.draw_line(head_pos + Vector2(0, head_ry * 0.34), head_pos + Vector2(r * 0.13, head_ry * 0.42), Color("3c332b"), 3.0)
-
-	if not is_dog:
-		_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.38, head_ry * 0.22), head_pos + Vector2(-head_rx * 0.85, head_ry * 0.14), Color("6e5d4f"), 2.0)
-		_pad_panel.draw_line(head_pos + Vector2(-head_rx * 0.38, head_ry * 0.30), head_pos + Vector2(-head_rx * 0.82, head_ry * 0.34), Color("6e5d4f"), 2.0)
-		_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.38, head_ry * 0.22), head_pos + Vector2(head_rx * 0.85, head_ry * 0.14), Color("6e5d4f"), 2.0)
-		_pad_panel.draw_line(head_pos + Vector2(head_rx * 0.38, head_ry * 0.30), head_pos + Vector2(head_rx * 0.82, head_ry * 0.34), Color("6e5d4f"), 2.0)
-
-func _draw_location_background(sz: Vector2) -> void:
-	var bg_col := Color("f6ede2")
-	var border_col := Color("d8c7b4")
-	if location == Location.BATH:
-		bg_col = Color("eaf4f7")
-		border_col = Color("a7c6d1")
-
-	var pad_bg := StyleBoxFlat.new()
-	pad_bg.bg_color = bg_col
-	pad_bg.border_color = border_col
-	pad_bg.set_border_width_all(3)
-	pad_bg.set_corner_radius_all(20)
-	_pad_panel.draw_style_box(pad_bg, Rect2(Vector2.ZERO, sz))
-
-	if location == Location.TABLE:
-		_pad_panel.draw_rect(Rect2(44, 34, 180, 155), Color("fffdf9"))
-		_pad_panel.draw_rect(Rect2(44, 34, 180, 155), Color("d4c4b2"), false, 3.0)
-		var table_y: float = sz.y * 0.74
-		_pad_panel.draw_rect(Rect2(16, table_y, sz.x - 32, sz.y - table_y - 14), Color("e4d2bc"))
-		_pad_panel.draw_rect(Rect2(16, table_y, sz.x - 32, 18), Color("f0e2d0"))
-		_pad_panel.draw_line(Vector2(16, table_y), Vector2(sz.x - 16, table_y), Color("bfa78c"), 4.0)
-	elif location == Location.BATH:
-		for tx in range(36, int(sz.x - 36), 64):
-			_pad_panel.draw_line(Vector2(tx, 16), Vector2(tx, sz.y * 0.72), Color("d5e7ed"), 2.0)
-		for ty in range(32, int(sz.y * 0.72), 56):
-			_pad_panel.draw_line(Vector2(16, ty), Vector2(sz.x - 16, ty), Color("d5e7ed"), 2.0)
-		_pad_panel.draw_line(Vector2(sz.x - 70, sz.y * 0.72), Vector2(sz.x - 70, 80), Color("94a5b0"), 8.0)
-		_pad_panel.draw_line(Vector2(sz.x - 70, 80), Vector2(sz.x - 140, 80), Color("94a5b0"), 8.0)
-
-func _draw_active_tool(pos: Vector2) -> void:
-	var anim_pulse: float = sin(_anim_time * 24.0) * 6.0 if _tool_anim_timer > 0.0 else 0.0
-	match active_tool:
-		Tool.BRUSH:
-			var bp := pos + Vector2(anim_pulse, 0)
-			_pad_panel.draw_line(bp + Vector2(-46, -24), bp + Vector2(-18, -6), Color("b88856"), 10.0)
-			_pad_panel.draw_rect(Rect2(bp - Vector2(22, 20), Vector2(68, 38)), Color("9fc4ab"))
-			_pad_panel.draw_rect(Rect2(bp - Vector2(22, 20), Vector2(68, 14)), Color("bce0c8"))
-			_pad_panel.draw_rect(Rect2(bp - Vector2(22, 20), Vector2(68, 38)), Color("4a6354"), false, 3.0)
-			for bx in [-12, -2, 8, 18, 28, 38]:
-				_pad_panel.draw_line(bp + Vector2(bx, 18), bp + Vector2(bx - 3, 30), Color("7a8691"), 2.6)
-		Tool.SCISSORS:
-			var snip: float = 4.0 if _tool_anim_timer > 0.0 else 20.0
-			_pad_panel.draw_line(pos + Vector2(-28, -snip), pos + Vector2(30, snip * 0.85), Color("b5bfc7"), 6.0)
-			_pad_panel.draw_line(pos + Vector2(-28, snip), pos + Vector2(30, -snip * 0.85), Color("8b969e"), 6.0)
-			_pad_panel.draw_circle(pos, 4.5, Color("4a3f35"))
-			_pad_panel.draw_circle(pos + Vector2(-30, -snip), 12.0, Color("d98a7e"), false, 4.0)
-			_pad_panel.draw_circle(pos + Vector2(-30, snip), 12.0, Color("d98a7e"), false, 4.0)
-		Tool.CLIPPER:
-			var jaw: float = 3.0 if _tool_anim_timer > 0.0 else 16.0
-			_pad_panel.draw_line(pos + Vector2(-28, 30), pos + Vector2(-6, 0), Color("e68c7a"), 8.5)
-			_pad_panel.draw_line(pos + Vector2(28, 30), pos + Vector2(6, 0), Color("e68c7a"), 8.5)
-			_pad_panel.draw_arc(pos + Vector2(0, 14), 10.0, 0.2, PI - 0.2, 8, Color("7a8691"), 3.0)
-			_pad_panel.draw_line(pos + Vector2(-6, 0), pos + Vector2(-jaw, -26), Color("94a1ab"), 7.0)
-			_pad_panel.draw_line(pos + Vector2(6, 0), pos + Vector2(jaw, -26), Color("94a1ab"), 7.0)
-		Tool.SHAMPOO:
-			var sq: float = 1.0 + sin(_anim_time * 18.0) * 0.10 if _tool_anim_timer > 0.0 else 1.0
-			_pad_panel.draw_rect(Rect2(pos - Vector2(22 * sq, 18), Vector2(44 * sq, 52)), Color("f5e09b"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(22 * sq, 18), Vector2(16 * sq, 52)), Color("fff0ba"))
-			_pad_panel.draw_rect(Rect2(pos - Vector2(22 * sq, 18), Vector2(44 * sq, 52)), Color("8c7a48"), false, 3.0)
-			_pad_panel.draw_rect(Rect2(pos - Vector2(8, 30), Vector2(16, 12)), Color("fffdf9"))
-			_pad_panel.draw_line(pos + Vector2(0, -30), pos + Vector2(16, -34), Color("fffdf9"), 4.5)
-		Tool.SHOWER:
-			_pad_panel.draw_line(pos + Vector2(-34, 24), pos + Vector2(-8, 6), Color("7f94a1"), 9.0)
-			_draw_soft_blob(pos, 26.0, 26.0, Color("9ab8c7"), true)
-			if _stroking:
-				for sx in [-14, -5, 5, 14]:
-					_pad_panel.draw_line(pos + Vector2(sx, 22), pos + Vector2(sx * 1.3, 62), Color("8fd0eb"), 3.5)
-		Tool.TOWEL:
-			var tp := pos + Vector2(0, anim_pulse)
-			_pad_panel.draw_rect(Rect2(tp - Vector2(36, 24), Vector2(72, 48)), Color("fffaf2"))
-			_pad_panel.draw_rect(Rect2(tp - Vector2(36, 24), Vector2(72, 48)), Color("bfa992"), false, 3.5)
-			_pad_panel.draw_line(tp + Vector2(-30, 14), tp + Vector2(30, 14), Color("9fc4ab"), 4.5)
-		Tool.DRYER:
-			var dp := pos + Vector2(0, anim_pulse * 0.5)
-			_pad_panel.draw_line(dp + Vector2(-12, 10), dp + Vector2(-22, 40), Color("687c8a"), 11.0)
-			_pad_panel.draw_rect(Rect2(dp - Vector2(24, 16), Vector2(46, 30)), Color("8ea6b5"))
-			_pad_panel.draw_rect(Rect2(dp + Vector2(22, -12), Vector2(12, 22)), Color("566673"))
-			_pad_panel.draw_rect(Rect2(dp - Vector2(24, 16), Vector2(46, 30)), Color("465a66"), false, 3.0)
-			if _stroking:
-				var wave: float = sin(_anim_time * 26.0) * 6.0
-				_pad_panel.draw_line(dp + Vector2(38, -8), dp + Vector2(82, -18 + wave), Color("f2cf8d"), 4.5)
-				_pad_panel.draw_line(dp + Vector2(38, 0), dp + Vector2(90, wave * 0.5), Color("f2cf8d"), 4.5)
-				_pad_panel.draw_line(dp + Vector2(38, 8), dp + Vector2(82, 18 - wave), Color("f2cf8d"), 4.5)
-
-func _build_ui() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var bg := ColorRect.new()
-	bg.color = Color("fbf7f1")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
-
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", 12)
-	vbox.add_child(top_row)
-
-	_title_lbl = Label.new()
-	_title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_title_lbl.add_theme_font_size_override("font_size", 32)
-	_title_lbl.add_theme_color_override("font_color", Color("3c332b"))
-	top_row.add_child(_title_lbl)
-
-	var close_btn := Button.new()
-	close_btn.text = "В зал"
-	close_btn.custom_minimum_size = Vector2(120, 56)
-	close_btn.add_theme_font_size_override("font_size", 24)
-	_apply_cozy_button_theme(close_btn, Color("fffdf9"), Color("cbb7a0"))
-	close_btn.pressed.connect(func():
-		visible = false
-		closed_early.emit()
-	)
-	top_row.add_child(close_btn)
-
-	_loc_lbl = Label.new()
-	_loc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_loc_lbl.add_theme_font_size_override("font_size", 23)
-	_loc_lbl.add_theme_color_override("font_color", Color("688694"))
-	vbox.add_child(_loc_lbl)
-
-	_stress_bar = _make_bar(vbox, "Стресс", Color("d98a7e"))
-	_calm_bar = _make_bar(vbox, "Спокойствие", Color("7da388"))
-	_prog_bar = _make_bar(vbox, "Прогресс этапа", Color("c99e76"))
-
-	_heat_row = VBoxContainer.new()
-	_heat_row.visible = false
-	_heat_bar = _make_bar(_heat_row, "Температура фена (води плавно!)", Color("e69d6c"))
-	vbox.add_child(_heat_row)
-
-	_status_lbl = Label.new()
-	_status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_lbl.add_theme_font_size_override("font_size", 23)
-	_status_lbl.add_theme_color_override("font_color", Color("3c332b"))
-	vbox.add_child(_status_lbl)
-
-	_pad_panel = Control.new()
-	_pad_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_pad_panel.custom_minimum_size = Vector2(0, 300)
-	_pad_panel.gui_input.connect(_on_pad_gui_input)
-	_pad_panel.draw.connect(_draw_pet_pad)
-	vbox.add_child(_pad_panel)
-
-	_tools_box = HBoxContainer.new()
-	_tools_box.add_theme_constant_override("separation", 8)
-	vbox.add_child(_tools_box)
-
-	_style_box = VBoxContainer.new()
-	_style_box.visible = false
-	_style_box.add_theme_constant_override("separation", 8)
-	vbox.add_child(_style_box)
-
-	_toy_btn = Button.new()
-	_toy_btn.text = "Дать любимую игрушку"
-	_toy_btn.custom_minimum_size = Vector2(0, 66)
-	_toy_btn.add_theme_font_size_override("font_size", 24)
-	_apply_cozy_button_theme(_toy_btn, Color("f5ebd9"), Color("c99e76"))
-	_toy_btn.pressed.connect(_on_toy_pressed)
-	vbox.add_child(_toy_btn)
-
-	_action_btn = Button.new()
-	_action_btn.text = "Забрать оплату и вернуться в зал"
-	_action_btn.custom_minimum_size = Vector2(0, 74)
-	_action_btn.visible = false
-	_action_btn.add_theme_font_size_override("font_size", 25)
-	_apply_cozy_button_theme(_action_btn, Color("dcebe2"), Color("7da388"))
-	_action_btn.pressed.connect(_on_action_pressed)
-	vbox.add_child(_action_btn)
-
-func _make_bar(parent: VBoxContainer, label_text: String, fill_col: Color) -> ProgressBar:
-	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", 2)
-	var lbl := Label.new()
-	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", 20)
-	lbl.add_theme_color_override("font_color", Color("5c4f43"))
-	row.add_child(lbl)
-
-	var bar := ProgressBar.new()
-	bar.max_value = 100.0
-	bar.custom_minimum_size = Vector2(0, 24)
-	var bg_sb := StyleBoxFlat.new()
-	bg_sb.bg_color = Color("eadfd2")
-	bg_sb.set_corner_radius_all(8)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill_col
-	sb.set_corner_radius_all(8)
-	bar.add_theme_stylebox_override("background", bg_sb)
-	bar.add_theme_stylebox_override("fill", sb)
-	row.add_child(bar)
-
-	parent.add_child(row)
-	return bar
+		_pad_panel.draw_rect(Rect2(nx - 10, ny - nail_len,
